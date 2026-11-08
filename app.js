@@ -133,41 +133,44 @@ function eventCard(e){
 
 // ===== СЬОГОДНІ
 function renderToday(){
-  const d0=fromISO(today);$("dateLbl").textContent=DOWL[d0.getDay()]+", "+d0.getDate()+" "+MON[d0.getMonth()]+" "+d0.getFullYear();
+  const d0=fromISO(today);$("dateLbl").textContent=DOWL[d0.getDay()]+", "+d0.getDate()+" "+MON[d0.getMonth()];
   const ev=eventsOn(today),tt=tasksOn(today),late=lateTasks();
-  const main=tt.filter(t=>t.pri===1),doneMain=main.filter(t=>t.done).length,doneAll=tt.filter(t=>t.done).length;
-  $("sumBig").textContent=tt.length?(doneAll+"/"+tt.length):"0";
-  $("sumCount").textContent=main.length?"головних "+doneMain+"/"+main.length:"";
-  $("sumBar").style.width=(tt.length?100*doneAll/tt.length:0)+"%";
+  const doneAll=tt.filter(t=>t.done).length;
   const nowHM=hm(new Date());
   const next=ev.find(e=>e.start_t&&e.start_t>nowHM&&!e.done),cur=ev.find(e=>e.start_t&&e.end_t&&e.start_t<=nowHM&&nowHM<e.end_t);
-  $("sumNext").textContent=cur?"зараз: "+cur.title:next?"далі "+next.start_t+" "+next.title:ev.length?"розклад на сьогодні завершено":"подій з часом немає";
-  const openMain=main.filter(t=>!t.done);
-  $("sumMid").textContent=openMain.length?openMain.slice(0,3).map((t,i)=>(i+1)+". "+t.title).join("\n"):tt.length?(doneAll===tt.length?"Усе на сьогодні зроблено.":"Головні задачі закриті, лишились звичайні."):"На сьогодні задач не заплановано. Скажіть, що в плані.";
+    if(cur){$("sumNext").textContent="Зараз · до "+cur.end_t;$("sumMid").textContent=cur.title}
+  else if(next){$("sumNext").textContent="Далі о "+next.start_t;$("sumMid").textContent=next.title}
+  else{$("sumNext").textContent=ev.length?"Розклад на сьогодні завершено":"Вільний день";$("sumMid").textContent=tt.length?(doneAll===tt.length?"Усе зроблено.":"Залишилось "+(tt.length-doneAll)+" з "+tt.length):"Задач на сьогодні немає"}
+  const tl=timelog.filter(x=>x.day===today),tlAll=tl.reduce((a,x)=>a+Number(x.min||0),0);
+  $("sumCount").textContent=[ev.length?"подій "+ev.length:"",tlAll?"у роботі "+fmtMin(tlAll):"",late.length?"прострочено "+late.length:""].filter(Boolean).join(" · ");
   $("late").hidden=!late.length;$("lateVal").textContent=late.length;$("lateMeta").textContent=late.slice(0,3).map(t=>t.title).join(" · ");
-  const S=$("sched");S.innerHTML="";if(!ev.length)S.innerHTML='<div class="empty">Подій з часом сьогодні немає.</div>';ev.forEach(e=>S.appendChild(eventCard(e)));
-  const h=ev.reduce((a,e)=>a+dur(e),0);$("schedSpan").textContent=h?fmtH(h)+" у розкладі":"";
-  const TL=$("timelog");TL.innerHTML="";const tl=timelog.filter(x=>x.day===today);const byP={};let tlAll=0;
-  for(const x of tl){const k=x.pj||x.title||"інше";byP[k]=(byP[k]||0)+Number(x.min||0);tlAll+=Number(x.min||0)}
-  if(!tl.length&&!timer)TL.innerHTML='<div class="note">Скажіть «сів на Рози» — таймер піде.</div>';
-  for(const [k,m] of Object.entries(byP).sort((a,b)=>b[1]-a[1])){const p=projects.find(q=>q.id===k);const el=document.createElement("div");el.className="cat "+(p?p.area:"")+" okp";el.style.cursor="default";el.style.gridTemplateColumns="1fr auto";
-    el.innerHTML=`<div class="name">${esc(p?p.name:k)}</div><div class="pill">${fmtMin(m)}</div><div class="meta" style="grid-column:1/-1">${tl.filter(x=>(x.pj||x.title||"інше")===k).map(x=>x.start_t+"–"+x.end_t).join(" · ")}</div>`;TL.appendChild(el)}
-  $("logSpan").textContent=tlAll?fmtMin(tlAll)+" разом":"";
+  // головне: late + pri1 + решта до 3
+  const open=tt.filter(t=>!t.done),mainSet=[...late.filter(t=>taskDay(t)!==today),...open.filter(t=>t.pri===1)];
+  for(const t of open)if(mainSet.length<3&&!mainSet.includes(t))mainSet.push(t);
+  const rest=[...open.filter(t=>!mainSet.includes(t)),...tt.filter(t=>t.done)];
   const T=$("todayTasks");T.innerHTML="";
-  const list=[...late.filter(t=>taskDay(t)!==today),...tt];
-  if(!list.length)T.innerHTML='<div class="empty">Задач на сьогодні немає.</div>';list.forEach(t=>T.appendChild(taskCard(t,"day")));
+  if(!mainSet.length)T.innerHTML='<div class="empty">'+(tt.length?"Головне на сьогодні зроблено.":"Скажіть, що в плані — або додайте нижче.")+'</div>';
+  mainSet.forEach(t=>T.appendChild(taskCard(t,"day")));
   $("taskSpan").textContent=tt.length?doneAll+" з "+tt.length+" зроблено":"";
-  const H=$("habits");H.innerHTML="";const hs=habitsOn(today).filter(h=>h.grp!=="morning");let hd=0;
-  if(!hs.length)H.innerHTML='<div class="note">Звичок на цей день немає.</div>';
-  for(const hb of hs){const on=!!(hb.log&&hb.log[today]);if(on)hd++;
+  const MT=$("moreTasks");MT.innerHTML="";rest.forEach(t=>MT.appendChild(taskCard(t,"day")));
+  $("fMore").hidden=!rest.length;$("moreSpan").textContent=rest.length?rest.length:"";
+  const S=$("sched");S.innerHTML="";if(!ev.length)S.innerHTML='<div class="note">Подій з часом сьогодні немає.</div>';ev.forEach(e=>S.appendChild(eventCard(e)));
+  const h=ev.reduce((a,e)=>a+dur(e),0);$("schedSpan").textContent=ev.length?ev.length+(h?" · "+fmtH(h):""):"порожньо";
+  const TL=$("timelog");TL.innerHTML="";const byP={};
+  for(const x of tl){const k=x.pj||x.title||"інше";byP[k]=(byP[k]||0)+Number(x.min||0)}
+  if(!tl.length)TL.innerHTML='<div class="note">Скажіть «сів на Рози» — таймер піде.</div>';
+  for(const [k,m] of Object.entries(byP).sort((a,b)=>b[1]-a[1])){const pp=projects.find(q=>q.id===k);const el=document.createElement("div");el.className="cat okp";el.style.cursor="default";el.style.gridTemplateColumns="1fr auto";
+    el.innerHTML=`<div class="name">${esc(pp?pp.name:k)}</div><div class="pill">${fmtMin(m)}</div><div class="meta" style="grid-column:1/-1">${tl.filter(x=>(x.pj||x.title||"інше")===k).map(x=>x.start_t+"–"+x.end_t).join(" · ")}</div>`;TL.appendChild(el)}
+  $("logSpan").textContent=tlAll?fmtMin(tlAll):"";
+  const H=$("habits");H.innerHTML="";const hs=habitsOn(today).filter(h=>h.grp!=="morning");
+  for(const hb of hs){const on=!!(hb.log&&hb.log[today]);
     const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);
     const streak=streakOf(hb.log);b.innerHTML=`${on?"✓ ":""}${esc(hb.title)}${streak>1?` <small>×${streak}</small>`:""}`;
     b.onclick=()=>setHabit(hb,on);H.appendChild(b)}
-  $("habitSpan").textContent=hs.length?hd+" з "+hs.length:"";
   const I=$("inbox");I.innerHTML="";const inb=tasks.filter(t=>live(t)&&!taskDay(t)).sort(sortT);
   if(!inb.length)I.innerHTML='<div class="note">Порожньо.</div>';inb.forEach(t=>I.appendChild(taskCard(t,"inbox")));
-  $("inboxSpan").textContent=inb.length?inb.length+" шт.":"";
-  if(lastAdvice){$("advText").textContent=lastAdvice.text||"";const d=new Date(lastAdvice.ts||0);$("advMeta").textContent="оновлено "+pad(d.getDate())+"."+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes())}
+  $("inboxSpan").textContent=inb.length?inb.length:"";
+  if(lastAdvice){$("advText").textContent=lastAdvice.text||"";const d=new Date(lastAdvice.ts||0);$("advMeta").textContent=pad(d.getDate())+"."+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes())}
 }
 $("q-date").value=today;
 $("q-kind").onchange=()=>{const ev=$("q-kind").value==="event";$("q-start").hidden=!ev;$("q-end").hidden=!ev};
@@ -401,7 +404,7 @@ function summary(){
     morningPractices:habits.filter(h=>h.grp==="morning").map(h=>({title:h.title,done:!!(h.log&&h.log[today]),streak:streakOf(h.log)}))};
 }
 $("advBtn").onclick=async()=>{
-  const btn=$("advBtn");btn.disabled=true;$("advText").textContent="Думаю…";$("advMeta").textContent="";
+  const btn=$("advBtn");btn.disabled=true;$("advText").textContent="Думаю…";
   const prompt="Ти ментор і асистент Євгена з тайм-менеджменту (Топанга, Каліфорнія). Він музичний продюсер (пісні для артистів зі строгими дедлайнами), разом з дружиною Катею веде Ninja Music і паблішинг, має сина Северина, тренується (вело, силові, тхеквондо в суботу), веде сімейний бюджет. Сфери: Продакшн, Ninja/паблішинг/студія-бізнес, Сім'я і Северин, Здоров'я і спорт, Побут і фінанси. У даних є його власні правила (rules) і «навіщо» (why) — порада має їх дотримуватись і за потреби на них посилатись. Дані його дашборду (JSON): "+JSON.stringify(summary())+"\n\nНапиши українською 3–5 конкретних кроків: за що братися зараз і до кінця дня, що встигнути цього тижня з огляду на дедлайни, і що з «без дати» або з проектів без наступного кроку варто або запланувати, або викинути. Кожен крок 1–2 речення, спирайся тільки на дані, нічого не вигадуй, без вступу і моралі. Якщо день уже пізній — скажи, що перенести на завтра. Тон: прямий, на його боці. Формат: нумерований список, звичайний текст без markdown.";
   try{const text=await claude(prompt,{model:"claude-sonnet-5-5"});lastAdvice={text,ts:new Date().toISOString()};renderToday();await run(sb.from("advice").update({text,ts:lastAdvice.ts}).eq("id",1))}
   catch(e){$("advText").textContent="Не вдалося отримати пораду: "+e.message}
