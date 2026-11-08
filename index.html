@@ -1,0 +1,324 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Життя · Євген</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Життя">
+<meta name="theme-color" content="#1f5f4a"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Phone-first, same system as «Бюджет Топанга»: summary strip, stacked cards, tabs. */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --fg:#17201d; --muted:#67706b; --line:#dfe3df;
+  --accent:#1f5f4a; --accent-ink:#ffffff;
+  --ok:#2d7a5c; --warn:#b2731a; --bad:#b83a2e; --bad-bg:#fbe9e6; --warn-bg:#fcf1de; --ok-bg:#e4f1ea;
+  --track:#e6e9e5;
+  --a-prod:#1f5f4a; --a-biz:#2f4f9a; --a-family:#a3522b; --a-health:#7a6a1a; --a-home:#5e5a6e;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121715; --surface:#1b2220; --fg:#eef2ef; --muted:#9aa49e; --line:#2b3430;
+  --accent:#5fc49a; --accent-ink:#0f1a15;
+  --ok:#5fc49a; --warn:#e2a04a; --bad:#f07564; --bad-bg:#3a1f1b; --warn-bg:#3a2d16; --ok-bg:#183127;
+  --track:#2a3330;
+  --a-prod:#5fc49a; --a-biz:#8ea6ea; --a-family:#e6956b; --a-health:#d9c45a; --a-home:#b3acc9;
+  color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.4;margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:560px;margin:0 auto;padding-block:14px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.01em}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top .date{color:var(--muted);font-size:13px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--track);border-radius:10px;padding:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:600;padding:8px 0;border-radius:8px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.tabs button:focus-visible,.cat:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pane{display:grid;gap:14px;min-width:0}
+.sum{background:var(--accent);color:var(--accent-ink);border-radius:14px;padding:16px 18px;display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:end}
+.sum .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;opacity:.8}
+.sum .big{font-family:var(--mono);font-size:32px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.sum .small{font-family:var(--mono);font-size:13px;opacity:.85;text-align:right;font-variant-numeric:tabular-nums}
+.sum .mid{grid-column:1/-1;font-size:15px;font-weight:500;margin-top:4px;line-height:1.35}
+.sum .bar{grid-column:1/-1;height:6px;border-radius:3px;background:rgba(255,255,255,.25);overflow:hidden;margin-top:6px}
+.sum .bar i{display:block;height:100%;background:var(--accent-ink);opacity:.9;width:0}
+.sec{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500;margin:6px 0 -6px;display:flex;justify-content:space-between;align-items:baseline}
+.sec span{text-transform:none;letter-spacing:0;font-weight:400}
+.cats{display:grid;gap:8px}
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:start;cursor:pointer;border-left:4px solid var(--line)}
+.cat.open{outline:2px solid var(--accent);outline-offset:1px}
+.cat .name{font-weight:600;min-width:0}
+.cat .name small{color:var(--muted);font-weight:400}
+.cat .meta{grid-column:2;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cat .meta b{color:var(--fg);font-weight:500}
+.cat .t{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--muted);padding-top:2px;white-space:nowrap;min-width:48px;font-variant-numeric:tabular-nums}
+.cat .pill{font-size:11px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;justify-self:end;white-space:nowrap;background:var(--track);color:var(--muted)}
+.cat.prod{border-left-color:var(--a-prod)} .cat.biz{border-left-color:var(--a-biz)} .cat.family{border-left-color:var(--a-family)} .cat.health{border-left-color:var(--a-health)} .cat.home{border-left-color:var(--a-home)}
+.cat.done{opacity:.55} .cat.done .name{text-decoration:line-through}
+.cat.late .pill{background:var(--bad-bg);color:var(--bad)} .cat.soon .pill{background:var(--warn-bg);color:var(--warn)} .cat.okp .pill{background:var(--ok-bg);color:var(--ok)}
+.chk{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:transparent;cursor:pointer;flex:none;display:grid;place-items:center;color:var(--accent-ink);font-size:13px;padding:0;margin-top:1px}
+.chk[aria-checked="true"]{background:var(--ok);border-color:var(--ok)}
+.form{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.form input,.form select,.form textarea,.pform input,.pform select,.pform textarea{font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);min-width:0;width:100%}
+.form .full,.pform .full{grid-column:1/-1}
+.form .wide{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
+button.pri{font:inherit;font-weight:600;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);padding:9px 14px;cursor:pointer}
+button.pri:disabled{opacity:.5;cursor:default}
+button.ghost{font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);padding:5px 9px;cursor:pointer}
+button.ghost[data-arm="1"]{color:var(--bad);border-color:var(--bad)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:13.5px;font-weight:500;padding:7px 12px;border-radius:999px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.chip[aria-pressed="true"]{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.chip small{color:var(--muted);font-weight:400}
+.empty{color:var(--muted);text-align:center;padding:18px 14px;font-size:14px;background:var(--surface);border:1px dashed var(--line);border-radius:12px}
+.note{font-size:12.5px;color:var(--muted);text-align:center}
+.res{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.res .lbl{font-weight:600}
+.res .rmeta{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.res .rbig{font-family:var(--mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.res.bad{background:var(--bad-bg);border-color:transparent} .res.bad .rbig{color:var(--bad)}
+.res.warn .rbig{color:var(--warn)} .res.ok .rbig{color:var(--ok)}
+.adv{font-size:14px;line-height:1.5;white-space:pre-wrap}
+.addp{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:10px 14px}
+.addp summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.pform{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.pform .pri{grid-column:1/-1}
+/* week */
+.day{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.day .dh{display:flex;justify-content:space-between;align-items:baseline;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.day .dh b{font-weight:600} .day .dh span{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.day.today .dh b{color:var(--accent)}
+.day .row{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--line);font-size:14px}
+.day .row:first-of-type{border-top:0}
+.day .row .d{color:var(--muted);font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.day .row .ttl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.day .row .ttl.dn{text-decoration:line-through;color:var(--muted)}
+.day .row .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.prod{background:var(--a-prod)} .dot.biz{background:var(--a-biz)} .dot.family{background:var(--a-family)} .dot.health{background:var(--a-health)} .dot.home{background:var(--a-home)}
+.day .free{padding:10px 14px;color:var(--muted);font-size:13px}
+/* areas */
+.area{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;border-left:4px solid var(--line)}
+.area .name{font-weight:600} .area .meta{font-size:12.5px;color:var(--muted);grid-column:1/-1;font-variant-numeric:tabular-nums}
+.area .h{font-family:var(--mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.area .bar{grid-column:1/-1;height:5px;border-radius:3px;background:var(--track);overflow:hidden;margin-top:6px}
+.area .bar i{display:block;height:100%;width:0;background:var(--ok)}
+.area.prod{border-left-color:var(--a-prod)} .area.biz{border-left-color:var(--a-biz)} .area.family{border-left-color:var(--a-family)} .area.health{border-left-color:var(--a-health)} .area.home{border-left-color:var(--a-home)}
+.why{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:16px;line-height:1.45;font-weight:500}
+.why small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:4px}
+.quote{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:14px 16px}
+.quote .q{font-size:16px;line-height:1.5;font-style:italic}
+.quote .who{font-size:12.5px;color:var(--muted);margin-top:6px}
+.quote .mean{font-size:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);line-height:1.45}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ach .a{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:2px}
+.ach .a .ic{font-size:22px}
+.ach .a .n{font-weight:600;font-size:13.5px;line-height:1.2}
+.ach .a .m{font-size:12px;color:var(--muted)}
+.ach .a.lock{opacity:.45;filter:grayscale(1)}
+.ach .a.got{border-color:var(--ok);background:var(--ok-bg)}
+.rules{display:grid;gap:6px}
+.rule{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;font-size:14.5px}
+.rule .n{font-family:var(--mono);color:var(--muted);font-size:12px;padding-top:3px}
+.rule .x{margin-left:auto;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1}
+.wake{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.wake div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 2px;text-align:center;font-size:11px;color:var(--muted)}
+.wake div b{display:block;font-family:var(--mono);font-size:12.5px;color:var(--fg);font-weight:600}
+.wake div.ok{border-color:var(--ok);background:var(--ok-bg)} .wake div.ok b{color:var(--ok)}
+.wake div.miss{border-color:var(--warn)} .wake div.miss b{color:var(--warn)}
+.wake div.td{outline:2px solid var(--accent);outline-offset:-1px}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+#micBtn{padding:16px;font-size:18px;border-radius:14px;width:100%}
+#micBtn.rec{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.75}}
+@media (prefers-reduced-motion:reduce){#micBtn.rec{animation:none}}
+.recTime{font-family:var(--mono);text-align:center;color:var(--bad);font-weight:600}
+.login{max-width:420px;margin:60px auto;display:grid;gap:12px;padding:0 16px}
+.login input{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg)}
+.hdr{display:flex;align-items:center;gap:8px}
+.hdr .ghost{padding:6px 10px}
+.set{display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.set input[type=text],.set input[type=password]{font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%}
+.set label{font-size:13px;color:var(--muted)}
+</style></head><body>
+
+<div class="login" id="login" hidden>
+  <h1>Життя · Євген</h1>
+  <div class="note" style="text-align:left">Вхід у вашу базу. Сесія зберігається на цьому телефоні.</div>
+  <input type="email" id="lg-email" value="eugenekobzaruk@gmail.com" autocomplete="username" aria-label="Email">
+  <input type="password" id="lg-pass" placeholder="Пароль" autocomplete="current-password" aria-label="Пароль">
+  <button class="pri" type="button" id="loginBtn" style="padding:12px;font-size:16px">Увійти</button>
+  <div class="note" id="lgMsg" style="color:var(--bad)"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top"><h1 id="title">Сьогодні</h1><div class="hdr"><div class="date" id="dateLbl"></div><button class="ghost" type="button" id="setBtn" aria-label="Налаштування">⚙︎</button></div></div>
+
+  <div class="set" id="setBox" hidden>
+    <div class="lbl" style="font-weight:600">Налаштування</div>
+    <div class="note" id="setMsg" style="text-align:left;color:var(--warn)"></div>
+    <label>Ключ OpenAI (розпізнавання голосу, Whisper)</label><input type="password" id="set-oa" placeholder="sk-…" autocomplete="off">
+    <label>Ключ Anthropic (розбір команд, порада, думка дня)</label><input type="password" id="set-an" placeholder="sk-ant-…" autocomplete="off">
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="set-auto"> Виконувати голосові команди без підтвердження</label>
+    <div style="display:flex;gap:8px"><button class="pri" type="button" id="setSave" style="flex:1">Зберегти</button><button class="ghost" type="button" id="setClose">Закрити</button><button class="ghost" type="button" id="setLogout">Вийти</button></div>
+    <div class="note" style="text-align:left">Ключі лежать тільки в цьому браузері. Поставте ліміти витрат на обох ключах.</div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Розділ">
+    <button type="button" role="tab" id="tb-today" aria-selected="true">Сьогодні</button>
+    <button type="button" role="tab" id="tb-week" aria-selected="false">Тиждень</button>
+    <button type="button" role="tab" id="tb-proj" aria-selected="false">Проекти</button>
+    <button type="button" role="tab" id="tb-areas" aria-selected="false">Сфери</button>
+    <button type="button" role="tab" id="tb-me" aria-selected="false">Я</button>
+  </div>
+
+  <div class="res" id="timerBox" hidden style="align-items:center">
+    <div style="min-width:0;flex:1"><div class="lbl" id="timerName">—</div><div class="rmeta" id="timerMeta"></div></div>
+    <div class="rbig" id="timerVal">0:00</div>
+    <button class="pri" type="button" id="timerStop">Стоп</button>
+  </div>
+  <button class="pri" type="button" id="micBtn">🎤 Сказати</button>
+  <div class="recTime" id="recTime" hidden></div>
+  <div style="display:flex;justify-content:center"><button class="ghost" type="button" id="typeBtn">або написати</button></div>
+  <div class="res" id="sayBox" hidden style="flex-direction:column;align-items:stretch;gap:8px">
+    <textarea id="sayText" rows="3" placeholder="Скажіть або напишіть команду" style="font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);resize:vertical"></textarea>
+    <div style="display:flex;gap:8px"><button class="pri" type="button" id="sayGo" style="flex:1">Виконати</button><button class="ghost" type="button" id="sayCancel">Закрити</button></div>
+    <div id="sayResult" hidden>
+      <div class="adv" id="sayUnderstood" style="font-weight:500"></div>
+      <div class="cats" id="sayActions" style="margin-top:8px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="pri" type="button" id="sayConfirm" style="flex:1">Так, виконати</button><button class="ghost" type="button" id="sayNo">Ні, не те</button></div>
+    </div>
+  </div>
+<!-- ====== СЬОГОДНІ ====== -->
+  <div class="pane" id="p-today">
+    <div class="sum">
+      <div class="lbl" id="sumLbl">Головне на сьогодні</div>
+      <div class="small" id="sumCount">—</div>
+      <div class="big" id="sumBig">—</div>
+      <div class="small" id="sumNext"></div>
+      <div class="mid" id="sumMid">Завантаження…</div>
+      <div class="bar"><i id="sumBar"></i></div>
+    </div>
+
+    <div class="res" id="late" hidden>
+      <div><div class="lbl">Прострочено</div><div class="rmeta" id="lateMeta"></div></div>
+      <div class="rbig" id="lateVal">0</div>
+    </div>
+
+    <div class="sec">Розклад дня <span id="schedSpan"></span></div>
+    <div class="cats" id="sched"></div>
+
+    <div class="sec">Час у роботі сьогодні <span id="logSpan"></span></div>
+    <div class="cats" id="timelog"></div>
+
+    <div class="sec">Задачі на сьогодні <span id="taskSpan"></span></div>
+    <div class="cats" id="todayTasks"></div>
+
+    <div class="sec">Звички <span id="habitSpan"></span></div>
+    <div class="chips" id="habits"></div>
+
+    <div class="sec">Що робити зараз</div>
+    <div class="res" id="adviceBox"><div style="min-width:0;flex:1"><div class="adv" id="advText">Натисніть «Порада»: я подивлюся розклад, задачі, дедлайни і скажу, за що братися.</div><div class="rmeta" id="advMeta"></div></div></div>
+    <button class="ghost" type="button" id="advBtn" style="justify-self:start;padding:8px 14px;font-size:14px">Порада</button>
+
+    <details class="addp" id="addQuick"><summary>+ Швидко додати</summary>
+      <div class="pform">
+        <select id="q-kind" aria-label="Тип" class="full"><option value="task">Задача</option><option value="event">Подія з часом</option></select>
+        <input type="text" id="q-title" placeholder="Що" aria-label="Що" class="full">
+        <select id="q-area" aria-label="Сфера"></select>
+        <input type="date" id="q-date" aria-label="Дата">
+        <input type="time" id="q-start" aria-label="Початок" hidden><input type="time" id="q-end" aria-label="Кінець" hidden>
+        <button class="pri" type="button" id="q-add">Додати</button>
+      </div></details>
+    <div class="sec">Без дати <span id="inboxSpan"></span></div>
+    <div class="cats" id="inbox"></div>
+  </div>
+
+  <!-- ====== ТИЖДЕНЬ ====== -->
+  <div class="pane" id="p-week" hidden>
+    <div class="sum">
+      <div class="lbl" id="wkLbl">Тиждень</div>
+      <div class="small" id="wkNav"><button class="ghost" type="button" id="wkPrev" style="color:inherit;border-color:rgba(255,255,255,.4)">‹</button> <button class="ghost" type="button" id="wkNext" style="color:inherit;border-color:rgba(255,255,255,.4)">›</button></div>
+      <div class="big" id="wkHours">—</div>
+      <div class="small" id="wkMeta"></div>
+      <div class="mid" id="wkMid"></div>
+    </div>
+    <div class="cats" id="weekDays"></div>
+    <div class="note">Тап на день — додати туди задачу або подію.</div>
+  </div>
+
+  <!-- ====== ПРОЕКТИ ====== -->
+  <div class="pane" id="p-proj" hidden>
+    <div class="sum">
+      <div class="lbl">Активні проекти</div>
+      <div class="small" id="pjCount"></div>
+      <div class="big" id="pjBig">—</div>
+      <div class="small" id="pjNext"></div>
+      <div class="mid" id="pjMid"></div>
+    </div>
+    <div id="projGroups"></div>
+    <details class="addp" id="addProj"><summary>+ Новий проект</summary>
+      <div class="pform">
+        <input type="text" id="np-name" placeholder="Назва (напр. Mioko · Revival)" aria-label="Назва" class="full">
+        <select id="np-area" aria-label="Сфера"></select>
+        <input type="date" id="np-dead" aria-label="Дедлайн">
+        <input type="text" id="np-next" placeholder="Наступний крок" aria-label="Наступний крок" class="full">
+        <button class="pri" type="button" id="np-add">Додати</button>
+      </div></details>
+  </div>
+
+  <!-- ====== СФЕРИ ====== -->
+  <div class="pane" id="p-areas" hidden>
+    <div class="sum">
+      <div class="lbl">Баланс тижня · години в розкладі</div>
+      <div class="small" id="arSpan"></div>
+      <div class="big" id="arHours">—</div>
+      <div class="small" id="arTarget"></div>
+      <div class="mid" id="arMid">Ціль годин на тиждень по кожній сфері задається тапом на картку.</div>
+    </div>
+    <div class="cats" id="areaCards"></div>
+    <div class="note">Години = події з часом у розкладі + час по таймеру («сів на…» / «стоп»). Задачі без часу сюди не входять.</div>
+  </div>
+
+
+  <!-- ====== Я ====== -->
+  <div class="pane" id="p-me" hidden>
+    <div class="why" id="whyBox"><small>Навіщо все це</small><span id="whyText">—</span></div>
+
+    <div class="sum">
+      <div class="lbl">Ранок</div>
+      <div class="small" id="meTarget">ціль 6:00</div>
+      <div class="big" id="meStreak">0</div>
+      <div class="small" id="meStreakLbl">днів поспіль</div>
+      <div class="mid" id="meMid"></div>
+      <div class="bar"><i id="meBar"></i></div>
+    </div>
+
+    <div class="sec">Підйом · останні 7 днів <span id="wakeSpan"></span></div>
+    <div class="wake" id="wakeGrid"></div>
+    <div class="chips" id="wakeChips"></div>
+
+    <div class="sec">Ранкові практики <span id="mpSpan"></span></div>
+    <div class="chips" id="mpChips"></div>
+
+    <div class="sec">Думка дня</div>
+    <div class="quote" id="quoteBox"><div class="q" id="qText">Натисніть «Нова думка» — підберу під сьогоднішній день.</div><div class="who" id="qWho"></div><div class="mean" id="qMean" hidden></div></div>
+    <button class="ghost" type="button" id="qBtn" style="justify-self:start;padding:8px 14px;font-size:14px">Нова думка</button>
+
+    <div class="sec">Ачівменти <span id="achSpan"></span></div>
+    <div class="ach" id="achGrid"></div>
+
+    <div class="sec">Мої правила <span>за ними живе порада й розклад</span></div>
+    <div class="rules" id="rulesList"></div>
+    <details class="addp" id="addRule"><summary>+ Правило або принцип</summary>
+      <div class="pform"><input type="text" id="r-text" placeholder="Напр. до 12:00 — тільки продакшн, без пошти" aria-label="Правило" class="full"><button class="pri" type="button" id="r-add">Додати</button></div>
+      <div class="pform"><input type="text" id="w-text" placeholder="Навіщо все це (одним реченням)" aria-label="Навіщо" class="full"><input type="time" id="wk-target" aria-label="Ціль підйому"><button class="pri" type="button" id="w-save">Зберегти «навіщо» і ціль підйому</button></div>
+    </details>
+  </div>
+    <div class="note" id="foot"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script type="module" src="app.js"></script>
+</body></html>
