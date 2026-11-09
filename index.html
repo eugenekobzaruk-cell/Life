@@ -62,7 +62,7 @@ button.pri:disabled{opacity:.5;cursor:default}
 button.ghost{font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--muted);padding:5px 9px;cursor:pointer}
 button.ghost[data-arm="1"]{color:var(--bad);border-color:var(--bad)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:13.5px;font-weight:500;padding:7px 12px;border-radius:999px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;font-size:13px;font-weight:500;padding:7px 12px;border-radius:999px;cursor:pointer;display:flex;gap:6px;align-items:center}
 .chip[aria-pressed="true"]{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
 .chip small{color:var(--muted);font-weight:400}
 .empty{color:var(--muted);text-align:center;padding:18px 14px;font-size:14px;background:var(--surface);border:1px dashed var(--line);border-radius:12px}
@@ -278,37 +278,47 @@ details.fold>.cats,details.fold>.ledger,details.fold>.chips,details.fold>.res{ma
 
   <!-- ====== Я ====== -->
   <div class="pane" id="p-me" hidden>
-    <div class="why" id="whyBox"><small>Навіщо все це</small><span id="whyText">—</span></div>
-
     <div class="sum">
-      <div class="lbl">Ранок</div>
-      <div class="small" id="meTarget">ціль 6:00</div>
-      <div class="big" id="meStreak">0</div>
-      <div class="small" id="meStreakLbl">днів поспіль</div>
-      <div class="mid" id="meMid"></div>
-      <div class="bar"><i id="meBar"></i></div>
+      <div class="lbl" id="prName">Антихряк</div>
+      <div class="small" id="prSince"></div>
+      <div class="big" id="prDay">—</div>
+      <div class="small" id="prClean"></div>
+      <div class="mid" id="prMid"></div>
+      <div class="bar"><i id="prBar"></i></div>
     </div>
+    <details class="fold" id="fIntent"><summary>Намір <span>текст, з якого все почалось</span></summary><div class="why" id="whyBox" style="margin-top:6px;font-weight:400;font-size:15px;line-height:1.55"><span id="whyText">—</span></div></details>
 
-    <div class="sec">Підйом · останні 7 днів <span id="wakeSpan"></span></div>
-    <div class="wake" id="wakeGrid"></div>
+    <div class="sec">Ранок <span id="meTarget"></span></div>
     <div class="chips" id="wakeChips"></div>
-
-    <div class="sec">Ранкові практики <span id="mpSpan"></span></div>
     <div class="chips" id="mpChips"></div>
 
-    <div class="sec">Думка дня</div>
-    <div class="quote" id="quoteBox"><div class="q" id="qText">Натисніть «Нова думка» — підберу під сьогоднішній день.</div><div class="who" id="qWho"></div><div class="mean" id="qMean" hidden></div></div>
-    <button class="ghost" type="button" id="qBtn" style="justify-self:start;padding:8px 14px;font-size:14px">Нова думка</button>
+    <div class="sec">Аскези сьогодні <span id="ascSpan"></span></div>
+    <button class="pri" type="button" id="cleanBtn" style="width:100%;padding:12px">Сьогодні чисто ✓</button>
+    <div class="chips" id="ascChips"></div>
 
-    <details class="fold"><summary>Ачівменти <span id="achSpan"></span></summary><div class="ach" id="achGrid" style="margin-top:6px"></div></details>
+    <div class="sec">Вечір</div>
+    <div class="chips" id="pmChips"></div>
 
-    <details class="fold"><summary>Мої правила <span>за ними живе порада</span></summary><div class="rules" id="rulesList" style="margin-top:6px"></div></details>
-    <details class="addp" id="addRule"><summary>+ Правило або принцип</summary>
-      <div class="pform"><input type="text" id="r-text" placeholder="Напр. до 12:00 — тільки продакшн, без пошти" aria-label="Правило" class="full"><button class="pri" type="button" id="r-add">Додати</button></div>
-      <div class="pform"><input type="text" id="w-text" placeholder="Навіщо все це (одним реченням)" aria-label="Навіщо" class="full"><input type="time" id="wk-target" aria-label="Ціль підйому"><button class="pri" type="button" id="w-save">Зберегти «навіщо» і ціль підйому</button></div>
+    <details class="fold" id="fCommit"><summary>Зобов'язання <span id="comSpan"></span></summary><div class="chips" id="comChips"></div></details>
+    <details class="fold" id="fOrder"><summary>Порядок і чистота <span id="ordSpan"></span></summary><div class="chips" id="ordChips"></div></details>
+
+    <details class="fold"><summary>Думка дня</summary>
+      <div class="quote" id="quoteBox" style="margin-top:6px"><div class="q" id="qText">Натисніть «Нова думка» — підберу під сьогоднішній день.</div><div class="who" id="qWho"></div><div class="mean" id="qMean" hidden></div></div>
+      <button class="ghost" type="button" id="qBtn" style="margin-top:8px;padding:8px 14px;font-size:14px">Нова думка</button>
     </details>
+    <details class="fold"><summary>Підйом · 7 днів <span id="wakeSpan"></span></summary><div class="wake" id="wakeGrid" style="margin-top:6px"></div></details>
+    <details class="fold"><summary>Ачівменти <span id="achSpan"></span></summary><div class="ach" id="achGrid" style="margin-top:6px"></div></details>
+    <details class="fold"><summary>Мої правила <span>за ними живе порада</span></summary><div class="rules" id="rulesList" style="margin-top:6px"></div>
+      <details class="addp" id="addRule" style="margin-top:8px"><summary>+ Правило</summary>
+        <div class="pform"><input type="text" id="r-text" placeholder="Напр. до 12:00 — тільки продакшн, без пошти" aria-label="Правило" class="full"><button class="pri" type="button" id="r-add">Додати</button></div>
+        <div class="pform"><input type="text" id="w-text" placeholder="Коротке «навіщо» (одним реченням)" aria-label="Навіщо" class="full"><input type="time" id="wk-target" aria-label="Ціль підйому"><button class="pri" type="button" id="w-save">Зберегти «навіщо» і ціль підйому</button></div>
+      </details>
+    </details>
+    <div hidden><span id="meStreak"></span><span id="meStreakLbl"></span><span id="meMid"></span><i id="meBar"></i><span id="mpSpan"></span></div>
   </div>
-    <div class="note" id="foot"></div>
+
+  
+<div class="note" id="foot"></div>
 </div>
 <div class="toast" id="toast"></div>
 <script type="module" src="app.js"></script>

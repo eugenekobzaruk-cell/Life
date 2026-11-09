@@ -33,7 +33,7 @@ let toastT;function toast(s){const t=$("toast");t.textContent=s;t.classList.add(
 const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 
 // ===== state
-let tasks=[],events=[],projects=[],habits=[],timelog=[],timer=null,me={},quote=null,lastAdvice=null;
+let tasks=[],events=[],projects=[],habits=[],timelog=[],timer=null,me={},quote=null,lastAdvice=null,program=null;
 let openTask=null,openEvent=null,openProj=null,openArea=null,openDay=null,weekStart=mondayOf(today);
 const logHours=(d,area)=>timelog.filter(x=>x.day===d&&(!area||x.area===area)).reduce((a,x)=>a+Number(x.min||0)/60,0);
 const live=t=>!t.done;
@@ -47,19 +47,19 @@ const streakOf=(log,from)=>{let n=0,d=from||today;if(!log||!log[d]){d=addDays(d,
 
 // ===== data
 async function loadAll(){
-  const [t,e,p,h,hl,tl,tm,m,q,ad]=await Promise.all([
+  const [t,e,p,h,hl,tl,tm,m,pr,q,ad]=await Promise.all([
     sb.from("tasks").select("*"),sb.from("events").select("*"),sb.from("projects").select("*"),
     sb.from("habits").select("*").order("sort"),sb.from("habit_log").select("*"),
     sb.from("timelog").select("*").gte("day",addDays(today,-60)),sb.from("timer").select("*").eq("id",1).maybeSingle(),
-    sb.from("me").select("*").eq("id",1).maybeSingle(),sb.from("quotes").select("*").eq("day",today).maybeSingle(),sb.from("advice").select("*").eq("id",1).maybeSingle()]);
-  const err=[t,e,p,h,hl,tl,tm,m,q,ad].find(r=>r.error);if(err){$("foot").textContent="Помилка даних: "+err.error.message;return}
+    sb.from("me").select("*").eq("id",1).maybeSingle(),sb.from("program").select("*").eq("id",1).maybeSingle(),sb.from("quotes").select("*").eq("day",today).maybeSingle(),sb.from("advice").select("*").eq("id",1).maybeSingle()]);
+  const err=[t,e,p,h,hl,tl,tm,m,pr,q,ad].find(r=>r.error);if(err){$("foot").textContent="Помилка даних: "+err.error.message;return}
   tasks=t.data||[];events=(e.data||[]).map(x=>({...x,start_t:hm5(x.start_t),end_t:hm5(x.end_t)}));projects=p.data||[];
   const logs={};for(const r of (hl.data||[])){(logs[r.habit_id]=logs[r.habit_id]||{})[r.day]=true}
   habits=(h.data||[]).map(x=>({...x,log:logs[x.id]||{}}));
   timelog=(tl.data||[]).map(x=>({...x,start_t:hm5(x.start_t),end_t:hm5(x.end_t)}));
   timer=tm.data&&tm.data.started_at?{...tm.data,start:new Date(tm.data.started_at).getTime()}:null;
   const md=m.data||{};me={wakeTarget:hm5(md.wake_target)||"06:00",why:md.why||"",rules:md.rules||[],wake:md.wake||{},targets:md.targets||{}};
-  quote=q.data||null;lastAdvice=ad.data&&ad.data.text?ad.data:null;
+  program=pr.data||null;quote=q.data||null;lastAdvice=ad.data&&ad.data.text?ad.data:null;
   renderAll();
 }
 let reloadT;function scheduleReload(){clearTimeout(reloadT);reloadT=setTimeout(loadAll,250)}
@@ -162,7 +162,7 @@ function renderToday(){
   for(const [k,m] of Object.entries(byP).sort((a,b)=>b[1]-a[1])){const pp=projects.find(q=>q.id===k);const el=document.createElement("div");el.className="cat okp";el.style.cursor="default";el.style.gridTemplateColumns="1fr auto";
     el.innerHTML=`<div class="name">${esc(pp?pp.name:k)}</div><div class="pill">${fmtMin(m)}</div><div class="meta" style="grid-column:1/-1">${tl.filter(x=>(x.pj||x.title||"інше")===k).map(x=>x.start_t+"–"+x.end_t).join(" · ")}</div>`;TL.appendChild(el)}
   $("logSpan").textContent=tlAll?fmtMin(tlAll):"";
-  const H=$("habits");H.innerHTML="";const hs=habitsOn(today).filter(h=>h.grp!=="morning");
+  const H=$("habits");H.innerHTML="";const hs=habitsOn(today).filter(h=>!h.grp);
   for(const hb of hs){const on=!!(hb.log&&hb.log[today]);
     const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);
     const streak=streakOf(hb.log);b.innerHTML=`${on?"✓ ":""}${esc(hb.title)}${streak>1?` <small>×${streak}</small>`:""}`;
@@ -317,28 +317,45 @@ $("timerStop").onclick=()=>stopTimer(false);
 const QUICK_WAKE=["05:30","06:00","06:30","07:00","пізніше"];
 const wakeOK=(t,target)=>!!t&&t!=="late"&&t<=target;
 function wakeStreak(target){const log=me.wake||{};let n=0,d=today;if(!log[d])d=addDays(d,-1);while(log[d]&&wakeOK(log[d],target)){n++;d=addDays(d,-1)}return n}
+function chipRow(el,list){
+  el.innerHTML="";if(!list.length){el.innerHTML='<div class="note">—</div>';return 0}let n=0;
+  for(const hb of list){const on=!!(hb.log&&hb.log[today]);if(on)n++;const s=streakOf(hb.log);
+    const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);
+    b.innerHTML=`${on?"✓ ":""}${esc(hb.title)}${s>1?` <small>×${s}</small>`:""}`;b.onclick=()=>setHabit(hb,on);el.appendChild(b)}
+  return n;
+}
+function cleanStreak(asc){if(!asc.length)return 0;let n=0,d=today;const all=x=>asc.every(h=>h.log&&h.log[x]);if(!all(d))d=addDays(d,-1);while(all(d)){n++;d=addDays(d,-1)}return n}
 function renderMe(){
-  const target=me.wakeTarget||"06:00",log=me.wake||{};
-  $("whyText").textContent=me.why||"Напишіть одним реченням, навіщо вам цей рік — нижче, у «Правила».";
-  $("meTarget").textContent="ціль "+target+(target<="05:30"?"":" → далі 5:30");
-  const st=wakeStreak(target);$("meStreak").textContent=st;
-  $("meStreakLbl").textContent=st===1?"день поспіль":st>=2&&st<=4?"дні поспіль":"днів поспіль";
-  const next=[3,7,21,66].find(x=>x>st)||100;$("meBar").style.width=Math.min(100,100*st/next)+"%";
-  const mp=habits.filter(h=>h.grp==="morning");const mpDone=mp.filter(h=>h.log&&h.log[today]).length;const wt=log[today];
-  $("meMid").textContent=(wt?(wakeOK(wt,target)?"Сьогодні встали о "+wt+" ✓":"Сьогодні "+(wt==="late"?"пізніше":"о "+wt)+" — завтра новий старт"):"Сьогодні ще не відмічено: скажіть «встав о шостій»")+(mp.length?" · практики "+mpDone+"/"+mp.length:"")+" · до наступного рівня "+(next-st)+" дн.";
+  const target=me.wakeTarget||"06:00",log=me.wake||{},wt=log[today];
+  const asc=habits.filter(h=>h.grp==="ascesis"),com=habits.filter(h=>h.grp==="commit"),ord=habits.filter(h=>h.grp==="order"),mp=habits.filter(h=>h.grp==="morning"),pm=habits.filter(h=>h.grp==="evening");
+  const day=program&&program.start_day?Math.max(1,-daysTo(program.start_day)+1):null;
+  $("prName").textContent=program?program.name||"Програма":"Програма";
+  $("prDay").textContent=day?"день "+day:"—";
+  $("prSince").textContent=program&&program.start_day?"з "+ddmm(program.start_day):"";
+  const cs=cleanStreak(asc);$("prClean").textContent=cs?"чистих днів поспіль: "+cs:"";
+  const ascDone=asc.filter(h=>h.log&&h.log[today]).length;
+  const wk=wakeStreak(target);
+  $("prMid").textContent=[wt?(wakeOK(wt,target)?"підйом "+wt+" ✓":"підйом пізніше"):"підйом не відмічено",
+    "медитації "+(mp.filter(h=>h.log&&h.log[today]).length+pm.filter(h=>h.log&&h.log[today]).length)+"/"+(mp.length+pm.length),
+    "аскези "+ascDone+"/"+asc.length].join(" · ");
+  $("prBar").style.width=(asc.length?100*ascDone/asc.length:0)+"%";
+  $("whyText").textContent=program&&program.intention?program.intention:(me.why||"");
+  $("meTarget").textContent="ціль "+target+(wk?" · серія "+wk:"");
+  const WC=$("wakeChips");WC.innerHTML="";
+  for(const t of QUICK_WAKE){const b=document.createElement("button");b.className="chip";b.type="button";const v=t==="пізніше"?"late":t;b.setAttribute("aria-pressed",wt===v);b.textContent=(t==="пізніше"?"пізніше":"встав о "+t);b.onclick=()=>setWake(v);WC.appendChild(b)}
+  chipRow($("mpChips"),mp);
+  chipRow($("ascChips"),asc);$("ascSpan").textContent=asc.length?ascDone+" з "+asc.length:"";
+  $("cleanBtn").textContent=ascDone===asc.length&&asc.length?"Сьогодні чисто ✓ · відмічено":"Сьогодні чисто ✓";
+  chipRow($("pmChips"),pm);
+  const cn=chipRow($("comChips"),com);$("comSpan").textContent=com.length?cn+" з "+com.length:"";
+  const on=chipRow($("ordChips"),ord);$("ordSpan").textContent=ord.length?on+" з "+ord.length:"";
   const G=$("wakeGrid");G.innerHTML="";let ok7=0;
   for(let i=6;i>=0;i--){const d=addDays(today,-i),v=log[d],dd=fromISO(d);const el=document.createElement("div");el.className=(v?(wakeOK(v,target)?"ok":"miss"):"")+(d===today?" td":"");if(v&&wakeOK(v,target))ok7++;
     el.innerHTML=`${DOW[dd.getDay()]}<b>${v?(v==="late"?"пізн.":v):"—"}</b>`;G.appendChild(el)}
-  $("wakeSpan").textContent=ok7+" з 7 по цілі";
-  const WC=$("wakeChips");WC.innerHTML="";
-  for(const t of QUICK_WAKE){const b=document.createElement("button");b.className="chip";b.type="button";const v=t==="пізніше"?"late":t;b.setAttribute("aria-pressed",wt===v);b.textContent=(t==="пізніше"?"пізніше":"встав о "+t);b.onclick=()=>setWake(v);WC.appendChild(b)}
-  const MP=$("mpChips");MP.innerHTML="";
-  if(!mp.length)MP.innerHTML='<div class="note">Практик ще немає.</div>';
-  for(const hb of mp){const on=!!(hb.log&&hb.log[today]),s=streakOf(hb.log);const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);
-    b.innerHTML=`${on?"✓ ":""}${esc(hb.title)}${s>1?` <small>×${s}</small>`:""}`;b.onclick=()=>setHabit(hb,on);MP.appendChild(b)}
-  $("mpSpan").textContent=mp.length?mpDone+" з "+mp.length:"";
+  $("wakeSpan").textContent=ok7+" з 7";
   renderQuote();renderAch();renderRules();
 }
+$("cleanBtn").onclick=async()=>{const asc=habits.filter(h=>h.grp==="ascesis");await run(sb.from("habit_log").upsert(asc.map(h=>({habit_id:h.id,day:today}))),"Чистий день записано")};
 async function setWake(v){const wake=Object.assign({},me.wake||{});if(wake[today]===v)delete wake[today];else wake[today]=v;await saveMe({wake},v==="late"?"Відмічено":"Підйом "+v)}
 function renderAch(){
   const target=me.wakeTarget||"06:00",wk=wakeStreak(target),mp=habits.filter(h=>h.grp==="morning");
@@ -348,7 +365,9 @@ function renderAch(){
   const doneP=projects.filter(p=>p.status==="done").length,doneT=tasks.filter(t=>t.done).length;
   const cleanDays=(()=>{const byD={};for(const t of tasks){const d=taskDay(t);if(!d)continue;(byD[d]=byD[d]||[]).push(t)}return Object.entries(byD).filter(([d,l])=>d<=today&&l.length&&l.every(t=>t.done)).length})();
   const bestAny=Math.max(0,...habits.map(h=>streakOf(h.log)));
+  const asc=habits.filter(h=>h.grp==="ascesis"),cs=cleanStreak(asc);
   const list=[
+    {ic:"🕊",n:"Чистий день",m:cs+" поспіль",got:cs>=1},{ic:"🛡",n:"7 чистих днів",m:cs+"/7",got:cs>=7},{ic:"🌙",n:"21 чистий день",m:cs+"/21",got:cs>=21},{ic:"☀️",n:"40 днів",m:cs+"/40",got:cs>=40},
     {ic:"🌅",n:"Перший ранок",m:"один підйом по цілі",got:wakeDays>=1},
     {ic:"🔥",n:"3 ранки поспіль",m:wk+"/3",got:wk>=3},
     {ic:"⚡",n:"Тиждень ранків",m:wk+"/7",got:wk>=7},
@@ -401,11 +420,12 @@ function summary(){
     workedTodayMinutes:timelog.filter(x=>x.day===today).reduce((a,x)=>a+Number(x.min||0),0),
     workedThisWeekByProject:(()=>{const r={};for(const x of timelog)if(x.day>=ws&&x.day<=days[6]){const k=(projects.find(p=>p.id===x.pj)||{}).name||x.title||"інше";r[k]=(r[k]||0)+Number(x.min||0)}return r})(),
     weeklyTargetsHours:me.targets||{},why:me.why||"",rules:me.rules||[],wakeTarget:me.wakeTarget||"06:00",wakeToday:(me.wake||{})[today]||null,wakeStreak:wakeStreak(me.wakeTarget||"06:00"),
+    program:program?{name:program.name,day:program.start_day?-daysTo(program.start_day)+1:null,intention:program.intention,cleanStreak:cleanStreak(habits.filter(h=>h.grp==="ascesis")),ascesesToday:habits.filter(h=>h.grp==="ascesis").map(h=>({title:h.title,clean:!!(h.log&&h.log[today])})),eveningMeditation:habits.filter(h=>h.grp==="evening").map(h=>({title:h.title,done:!!(h.log&&h.log[today])}))}:null,
     morningPractices:habits.filter(h=>h.grp==="morning").map(h=>({title:h.title,done:!!(h.log&&h.log[today]),streak:streakOf(h.log)}))};
 }
 $("advBtn").onclick=async()=>{
   const btn=$("advBtn");btn.disabled=true;$("advText").textContent="Думаю…";
-  const prompt="Ти ментор і асистент Євгена з тайм-менеджменту (Топанга, Каліфорнія). Він музичний продюсер (пісні для артистів зі строгими дедлайнами), разом з дружиною Катею веде Ninja Music і паблішинг, має сина Северина, тренується (вело, силові, тхеквондо в суботу), веде сімейний бюджет. Сфери: Продакшн, Ninja/паблішинг/студія-бізнес, Сім'я і Северин, Здоров'я і спорт, Побут і фінанси. У даних є його власні правила (rules) і «навіщо» (why) — порада має їх дотримуватись і за потреби на них посилатись. Дані його дашборду (JSON): "+JSON.stringify(summary())+"\n\nНапиши українською 3–5 конкретних кроків: за що братися зараз і до кінця дня, що встигнути цього тижня з огляду на дедлайни, і що з «без дати» або з проектів без наступного кроку варто або запланувати, або викинути. Кожен крок 1–2 речення, спирайся тільки на дані, нічого не вигадуй, без вступу і моралі. Якщо день уже пізній — скажи, що перенести на завтра. Тон: прямий, на його боці. Формат: нумерований список, звичайний текст без markdown.";
+  const prompt="Ти ментор і асистент Євгена з тайм-менеджменту (Топанга, Каліфорнія). Він музичний продюсер (пісні для артистів зі строгими дедлайнами), разом з дружиною Катею веде Ninja Music і паблішинг, має сина Северина, тренується (вело, силові, тхеквондо в суботу), веде сімейний бюджет. Сфери: Продакшн, Ninja/паблішинг/студія-бізнес, Сім'я і Северин, Здоров'я і спорт, Побут і фінанси. Він веде програму «Антихряк» (program: намір, аскези, медитації ранок і вечір по годині) — порада має це поважати: без порад про алкоголь, м'ясо, серіали тощо; вечір закінчується медитацією і раннім сном. У даних є його власні правила (rules) і «навіщо» (why) — порада має їх дотримуватись і за потреби на них посилатись. Дані його дашборду (JSON): "+JSON.stringify(summary())+"\n\nНапиши українською 3–5 конкретних кроків: за що братися зараз і до кінця дня, що встигнути цього тижня з огляду на дедлайни, і що з «без дати» або з проектів без наступного кроку варто або запланувати, або викинути. Кожен крок 1–2 речення, спирайся тільки на дані, нічого не вигадуй, без вступу і моралі. Якщо день уже пізній — скажи, що перенести на завтра. Тон: прямий, на його боці. Формат: нумерований список, звичайний текст без markdown.";
   try{const text=await claude(prompt,{model:"claude-sonnet-5-5"});lastAdvice={text,ts:new Date().toISOString()};renderToday();await run(sb.from("advice").update({text,ts:lastAdvice.ts}).eq("id",1))}
   catch(e){$("advText").textContent="Не вдалося отримати пораду: "+e.message}
   btn.disabled=false;
@@ -413,7 +433,7 @@ $("advBtn").onclick=async()=>{
 $("qBtn").onclick=async()=>{
   const btn=$("qBtn");btn.disabled=true;$("qText").textContent="Підбираю…";$("qWho").textContent="";$("qMean").hidden=true;
   const d=summary();
-  const prompt="Ти підбираєш думку дня для Євгена — музичного продюсера, який будує дисципліну: ранній підйом, медитація, читання Йогананди, продакшн із дедлайнами, сім'я. Джерела: Йогананда, стоїки (Марк Аврелій, Сенека, Епіктет), дзен, Бгаґавад-ґіта, Лао-цзи. Сьогоднішній контекст (JSON): "+JSON.stringify({weekday:d.weekday,overdue:d.overdue.length,todayTasks:d.todayTasks.length,timerRunning:d.timerRunning,wakeStreak:d.wakeStreak,why:d.why,rules:d.rules.slice(0,8)})+"\n\nПоверни ТІЛЬКИ JSON: {\"text\":\"цитата або близький переказ, українською, до 25 слів\",\"who\":\"автор, джерело\",\"mean\":\"1–2 речення: що це означає для Євгена саме сьогодні, з прив'язкою до контексту, без моралі\"}. Для Йогананди давай переказ своїми словами, не дослівну цитату. Обирай під день.";
+  const prompt="Ти підбираєш думку дня для Євгена — музичного продюсера, який будує дисципліну: ранній підйом, медитація, читання Йогананди, продакшн із дедлайнами, сім'я. Джерела: Йогананда, стоїки (Марк Аврелій, Сенека, Епіктет), дзен, Бгаґавад-ґіта, Лао-цзи. Сьогоднішній контекст (JSON): "+JSON.stringify({weekday:d.weekday,overdue:d.overdue.length,todayTasks:d.todayTasks.length,timerRunning:d.timerRunning,wakeStreak:d.wakeStreak,why:d.why,rules:d.rules.slice(0,8),program:d.program?{day:d.program.day,cleanStreak:d.program.cleanStreak,intention:d.program.intention}:null})+"\n\nПоверни ТІЛЬКИ JSON: {\"text\":\"цитата або близький переказ, українською, до 25 слів\",\"who\":\"автор, джерело\",\"mean\":\"1–2 речення: що це означає для Євгена саме сьогодні, з прив'язкою до контексту, без моралі\"}. Для Йогананди давай переказ своїми словами, не дослівну цитату. Обирай під день.";
   try{const v=await claude(prompt,{json:true,model:"claude-sonnet-5-5"});quote={day:today,text:String(v.text||"").slice(0,300),who:String(v.who||"").slice(0,80),mean:String(v.mean||"").slice(0,400)};renderQuote();await run(sb.from("quotes").upsert(quote))}
   catch(e){$("qText").textContent="Не вдалося підібрати: "+e.message}
   btn.disabled=false;
@@ -421,7 +441,7 @@ $("qBtn").onclick=async()=>{
 
 // ===== ГОЛОС
 let rec=null,chunks=[],recStart=0,recTimer=null,pending=null,mediaStream=null;
-const ACT_LABEL={wake:"Підйом",rule_add:"Правило",why_set:"Навіщо",timer_start:"▶ Таймер",timer_stop:"■ Стоп",add_event:"Подія",add_task:"Задача",done_task:"Зроблено",add_project:"Проект",set_next:"Наступний крок",move_task:"Перенести",habit:"Звичка ✓",note:"Нотатка"};
+const ACT_LABEL={clean_day:"Чистий день",broke:"Зрив",wake:"Підйом",rule_add:"Правило",why_set:"Навіщо",timer_start:"▶ Таймер",timer_stop:"■ Стоп",add_event:"Подія",add_task:"Задача",done_task:"Зроблено",add_project:"Проект",set_next:"Наступний крок",move_task:"Перенести",habit:"Звичка ✓",note:"Нотатка"};
 function describe(a){
   const p=a.pj?projects.find(q=>q.id===a.pj):null,t=a.task?tasks.find(q=>q.id===a.task):null;
   switch(a.type){
@@ -435,6 +455,8 @@ function describe(a){
     case"set_next":return (p?p.name:"?")+" → "+(a.next||"?");
     case"habit":{const h=habits.find(q=>q.id===a.habit);return h?h.title:"?"}
     case"wake":return a.time==="late"?"сьогодні пізніше за ціль":"встав о "+(a.time||"?");
+    case"clean_day":return "усі аскези сьогодні дотримано";
+    case"broke":{const h=habits.find(q=>q.id===a.habit);return "зрив: "+(h?h.title:"?")}
     case"rule_add":case"why_set":return a.text||"?";
     default:return a.text||"";
   }
@@ -444,9 +466,9 @@ function ctx(){
     areas:AREAS.map(a=>({id:a.id,name:a.name})),
     projects:projects.filter(p=>p.status!=="done").map(p=>({id:p.id,name:p.name,area:p.area})),
     openTasks:tasks.filter(live).map(t=>({id:t.id,title:t.title,area:t.area,day:t.day,due:t.due})),
-    habits:habits.map(h=>({id:h.id,title:h.title,morning:h.grp==="morning"})),wakeTarget:me.wakeTarget||"06:00"};
+    habits:habits.filter(h=>h.grp!=="ascesis").map(h=>({id:h.id,title:h.title,grp:h.grp})),asceses:habits.filter(h=>h.grp==="ascesis").map(h=>({id:h.id,title:h.title})),wakeTarget:me.wakeTarget||"06:00"};
 }
-const PARSE_RULES="Типи дій:\n- {\"type\":\"timer_start\",\"pj\":\"<id проекту з контексту>\",\"title\":\"<якщо проекту немає — назва>\"} — «сів на…», «почав…», «працюю над…»\n- {\"type\":\"timer_stop\"} — «стоп», «пауза», «закінчив», «перерва»\n- {\"type\":\"add_event\",\"title\",\"date\":\"YYYY-MM-DD\",\"start\":\"HH:MM\"|null,\"end\":\"HH:MM\"|null,\"area\"} — зустріч, дзвінок, сесія, поїздка з часом; «завтра/у вівторок/наступної середи» рахуй від today і weekday; без кінця — end = start + 1 год\n- {\"type\":\"add_task\",\"title\",\"area\",\"day\":\"YYYY-MM-DD\"|null,\"due\":\"YYYY-MM-DD\"|null,\"pri\":1|2,\"pj\":\"<id>\"|null} — «треба…», «не забути…», «зробити…»; «сьогодні» → day=today; «до п'ятниці» → due; «головне/важливо» → pri 1\n- {\"type\":\"done_task\",\"task\":\"<id з openTasks>\"} — «зробив…», «закрив…», «готово…»; обери найближчу за змістом задачу\n- {\"type\":\"move_task\",\"task\":\"<id>\",\"day\":\"YYYY-MM-DD\"} — «перенеси … на завтра»\n- {\"type\":\"add_project\",\"name\",\"area\",\"deadline\":\"YYYY-MM-DD\"|null,\"next\":\"\"} — новий проект/пісня/клієнт\n- {\"type\":\"set_next\",\"pj\":\"<id>\",\"next\":\"...\"} — «наступний крок по … — …»\n- {\"type\":\"habit\",\"habit\":\"<id>\"} — «покатався», «потренувався», «зважився», «помедитував», «почитав Йогананду»\n- {\"type\":\"wake\",\"time\":\"HH:MM\"|\"late\"} — «встав о шостій», «прокинувся о 5:40», «проспав» → late\n- {\"type\":\"rule_add\",\"text\"} — «правило: …», «хочу жити так: …», «принцип: …» — коротко, у його словах\n- {\"type\":\"why_set\",\"text\"} — «навіщо все це: …», «моя ціль на рік — …»\n- {\"type\":\"note\",\"text\"} — якщо нічого не підходить, коротко що саме незрозуміло\nСфера за змістом: пісні/клієнти/студійна робота → prod; Ninja, паблішинг, команда, пітчі, облік студії → biz; Северин, школа, Катя (не бізнес) → family; вело, силові, тхеквондо, їжа, вага, медитація → health; бюджет, дім, документи, покупки → home. Одна фраза може давати кілька дій. Дати тільки YYYY-MM-DD, час HH:MM 24 год. Без markdown, без пояснень.";
+const PARSE_RULES="Типи дій:\n- {\"type\":\"timer_start\",\"pj\":\"<id проекту з контексту>\",\"title\":\"<якщо проекту немає — назва>\"} — «сів на…», «почав…», «працюю над…»\n- {\"type\":\"timer_stop\"} — «стоп», «пауза», «закінчив», «перерва»\n- {\"type\":\"add_event\",\"title\",\"date\":\"YYYY-MM-DD\",\"start\":\"HH:MM\"|null,\"end\":\"HH:MM\"|null,\"area\"} — зустріч, дзвінок, сесія, поїздка з часом; «завтра/у вівторок/наступної середи» рахуй від today і weekday; без кінця — end = start + 1 год\n- {\"type\":\"add_task\",\"title\",\"area\",\"day\":\"YYYY-MM-DD\"|null,\"due\":\"YYYY-MM-DD\"|null,\"pri\":1|2,\"pj\":\"<id>\"|null} — «треба…», «не забути…», «зробити…»; «сьогодні» → day=today; «до п'ятниці» → due; «головне/важливо» → pri 1\n- {\"type\":\"done_task\",\"task\":\"<id з openTasks>\"} — «зробив…», «закрив…», «готово…»; обери найближчу за змістом задачу\n- {\"type\":\"move_task\",\"task\":\"<id>\",\"day\":\"YYYY-MM-DD\"} — «перенеси … на завтра»\n- {\"type\":\"add_project\",\"name\",\"area\",\"deadline\":\"YYYY-MM-DD\"|null,\"next\":\"\"} — новий проект/пісня/клієнт\n- {\"type\":\"set_next\",\"pj\":\"<id>\",\"next\":\"...\"} — «наступний крок по … — …»\n- {\"type\":\"habit\",\"habit\":\"<id>\"} — «покатався», «потренувався», «зважився», «помедитував», «почитав Йогананду»\n- {\"type\":\"clean_day\"} — «сьогодні чисто», «день чистий», «всі аскези дотримав»\n- {\"type\":\"broke\",\"habit\":\"<id з asceses>\"} — «зірвався на солодке», «випив», «залип в інстаграмі» — знімає галочку цієї аскези за сьогодні\n- {\"type\":\"habit\",\"habit\":\"<id з habits>\"} також для медитацій (grp morning/evening: «помедитував зранку/ввечері»), зобов'язань (grp commit: «порухався», «добре спав», «працював залочено») і порядку (grp order: «прибрав студію», «помив авто», «поголився»)\n- {\"type\":\"wake\",\"time\":\"HH:MM\"|\"late\"} — «встав о шостій», «прокинувся о 5:40», «проспав» → late\n- {\"type\":\"rule_add\",\"text\"} — «правило: …», «хочу жити так: …», «принцип: …» — коротко, у його словах\n- {\"type\":\"why_set\",\"text\"} — «навіщо все це: …», «моя ціль на рік — …»\n- {\"type\":\"note\",\"text\"} — якщо нічого не підходить, коротко що саме незрозуміло\nСфера за змістом: пісні/клієнти/студійна робота → prod; Ninja, паблішинг, команда, пітчі, облік студії → biz; Северин, школа, Катя (не бізнес) → family; вело, силові, тхеквондо, їжа, вага, медитація → health; бюджет, дім, документи, покупки → home. Одна фраза може давати кілька дій. Дати тільки YYYY-MM-DD, час HH:MM 24 год. Без markdown, без пояснень.";
 async function parseCommand(text){
   if(/^(стоп|стій|пауза|stop|зупини(ти)?|закінчив|перерва)[.!]?$/i.test(text.trim()))return {understood:"Стоп",actions:[{type:"timer_stop"}]};
   const prompt="Ти асистент Євгена з тайм-менеджменту. Перетвори його надиктовану фразу (українською, можливі помилки розпізнавання: «Рози» = пісня Yaktak «Рози», «Нащо» = пісня Yaktak, Міоко = Mioko, Ковальов = Kovalov) на дії для дашборду. Контекст (JSON): "+JSON.stringify(ctx())+"\n\nФраза: «"+text.replace(/"/g,"'")+"»\n\nПоверни ТІЛЬКИ JSON виду {\"understood\":\"одне речення, що ти зрозумів\",\"actions\":[...]}. "+PARSE_RULES;
@@ -465,6 +487,8 @@ async function execute(acts){
       case"add_project":if(a.name)await ins("projects",{name:String(a.name).slice(0,120),area:isArea(a.area)?a.area:"prod",deadline:a.deadline||null,next:a.next||"",status:"active"});break;
       case"set_next":if(a.pj&&projects.some(p=>p.id===a.pj))await upd("projects",a.pj,{next:String(a.next||"").slice(0,160)});break;
       case"habit":{const h=habits.find(q=>q.id===a.habit);if(h)await run(sb.from("habit_log").upsert({habit_id:h.id,day:today}));break}
+      case"clean_day":{const rows=habits.filter(h=>h.grp==="ascesis").map(h=>({habit_id:h.id,day:today}));await run(sb.from("habit_log").upsert(rows));break}
+      case"broke":{if(a.habit)await run(sb.from("habit_log").delete().eq("habit_id",a.habit).eq("day",today));break}
       case"wake":{const wake=Object.assign({},me.wake||{});wake[today]=a.time==="late"?"late":String(a.time||"").slice(0,5);await saveMe({wake});me.wake=wake;break}
       case"rule_add":{const rules=[...(me.rules||[]),String(a.text||"").slice(0,200)];await saveMe({rules});me.rules=rules;break}
       case"why_set":{await saveMe({why:String(a.text||"").slice(0,200)});break}
@@ -484,7 +508,7 @@ async function handleText(text){
   try{const v=await parseCommand(text);
     sb.from("voice_log").insert({heard:text,understood:v.understood||"",actions:v.actions}).then(()=>{});
     const auto=LS.get("lf-auto")==="1";
-    const simple=v.actions.length&&v.actions.every(a=>["timer_start","timer_stop","habit","wake"].includes(a.type));
+    const simple=v.actions.length&&v.actions.every(a=>["timer_start","timer_stop","habit","wake","clean_day","broke"].includes(a.type));
     if(auto||simple){showPending(v);await execute(v.actions);pending=null;$("sayBox").hidden=true;$("sayText").value=""}else showPending(v);
   }catch(e){toast("Не вдалося розібрати: "+e.message)}
   btn.disabled=false;btn.textContent="Виконати";
