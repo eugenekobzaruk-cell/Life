@@ -89,7 +89,7 @@ function taskCard(t,ctx){
   const el=document.createElement("div");el.className="cat "+(t.area||"")+(t.done?" done":"")+" "+pc+(openTask===t.id?" open":"");el.tabIndex=0;el.setAttribute("role","button");
   const pj=t.pj?projects.find(p=>p.id===t.pj):null;
   el.innerHTML=`<button class="chk" type="button" role="checkbox" aria-checked="${!!t.done}" aria-label="Зроблено">${t.done?"✓":""}</button>
-    <div class="name">${esc(t.title)}${t.pri===1?' <small>· головне</small>':""}</div><div class="pill">${pt}</div>
+    <div class="name">${esc(t.title)}</div><div class="pill">${pt}</div>
     <div class="meta">${AN[t.area]||""}${pj?" · "+esc(pj.name):""}${t.day&&t.day!==t.due&&ctx!=="day"?" · план "+ddmm(t.day):""}${t.note?" · "+esc(t.note):""}</div>`;
   el.querySelector(".chk").onclick=ev=>{ev.stopPropagation();toggleTask(t)};
   if(openTask===t.id){
@@ -132,7 +132,29 @@ function eventCard(e){
 }
 
 // ===== СЬОГОДНІ
+
+function renderZen(){
+  const Z=$("zen");const hr=new Date().getHours(),mn=new Date().getMinutes();
+  const mode=hr<11?"morning":hr>=19?"evening":"day";
+  if(!program||mode==="day"){Z.hidden=true;return}
+  Z.hidden=false;const log=me.wake||{},wt=log[today];
+  const mp=habits.filter(h=>h.grp==="morning"),pm=habits.filter(h=>h.grp==="evening"),asc=habits.filter(h=>h.grp==="ascesis");
+  const C=$("zChips");C.innerHTML="";
+  if(mode==="morning"){
+    $("zK").textContent="Ранок · "+(program.name||"");$("zTxt").textContent=program.morning_text||"";$("zBed").hidden=true;$("zClean").hidden=true;
+    for(const t of QUICK_WAKE){const b=document.createElement("button");b.className="chip";b.type="button";const v=t==="пізніше"?"late":t;b.setAttribute("aria-pressed",wt===v);b.textContent=(t==="пізніше"?"пізніше":"встав о "+t);b.onclick=()=>setWake(v);C.appendChild(b)}
+    for(const hb of mp){const on=!!(hb.log&&hb.log[today]);const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);b.textContent=(on?"✓ ":"")+hb.title;b.onclick=()=>setHabit(hb,on);C.appendChild(b)}
+  }else{
+    $("zK").textContent="Вечір · "+(program.name||"");$("zTxt").textContent=program.evening_text||"";
+    const bed=hm5(program.bedtime)||"22:00";const [bh,bm]=bed.split(":").map(Number);const left=(bh*60+bm)-(hr*60+mn);
+    $("zBed").hidden=false;$("zBed").innerHTML="Лягати о <b>"+bed+"</b>"+(left>0?" · через "+(left>=60?Math.floor(left/60)+" год "+pad(left%60)+" хв":left+" хв"):" · <b>вже час</b>");
+    for(const hb of pm){const on=!!(hb.log&&hb.log[today]);const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);b.textContent=(on?"✓ ":"")+hb.title;b.onclick=()=>setHabit(hb,on);C.appendChild(b)}
+    const done=asc.filter(h=>h.log&&h.log[today]).length;$("zClean").hidden=false;$("zClean").textContent=done===asc.length&&asc.length?"День чистий ✓":"Сьогодні чисто";
+  }
+}
+$("zClean").onclick=async()=>{const asc=habits.filter(h=>h.grp==="ascesis");await run(sb.from("habit_log").upsert(asc.map(h=>({habit_id:h.id,day:today}))),"Чистий день записано")};
 function renderToday(){
+  renderZen();
   const d0=fromISO(today);$("dateLbl").textContent=DOWL[d0.getDay()]+", "+d0.getDate()+" "+MON[d0.getMonth()];
   const ev=eventsOn(today),tt=tasksOn(today),late=lateTasks();
   const doneAll=tt.filter(t=>t.done).length;
@@ -298,7 +320,7 @@ function renderTimer(){
   $("timerVal").textContent=fmtMin((Date.now()-timer.start)/60000);
   $("timerMeta").textContent="з "+hm(new Date(timer.start))+(p&&p.area?" · "+AN[p.area]:"");
 }
-setInterval(renderTimer,30000);
+setInterval(()=>{renderTimer();renderZen()},30000);
 async function startTimer(pj,title){
   if(timer&&timer.start)await stopTimer(true);
   const p=projects.find(q=>q.id===pj);
@@ -420,7 +442,7 @@ function summary(){
     workedTodayMinutes:timelog.filter(x=>x.day===today).reduce((a,x)=>a+Number(x.min||0),0),
     workedThisWeekByProject:(()=>{const r={};for(const x of timelog)if(x.day>=ws&&x.day<=days[6]){const k=(projects.find(p=>p.id===x.pj)||{}).name||x.title||"інше";r[k]=(r[k]||0)+Number(x.min||0)}return r})(),
     weeklyTargetsHours:me.targets||{},why:me.why||"",rules:me.rules||[],wakeTarget:me.wakeTarget||"06:00",wakeToday:(me.wake||{})[today]||null,wakeStreak:wakeStreak(me.wakeTarget||"06:00"),
-    program:program?{name:program.name,day:program.start_day?-daysTo(program.start_day)+1:null,intention:program.intention,cleanStreak:cleanStreak(habits.filter(h=>h.grp==="ascesis")),ascesesToday:habits.filter(h=>h.grp==="ascesis").map(h=>({title:h.title,clean:!!(h.log&&h.log[today])})),eveningMeditation:habits.filter(h=>h.grp==="evening").map(h=>({title:h.title,done:!!(h.log&&h.log[today])}))}:null,
+    program:program?{name:program.name,bedtime:hm5(program.bedtime),day:program.start_day?-daysTo(program.start_day)+1:null,intention:program.intention,cleanStreak:cleanStreak(habits.filter(h=>h.grp==="ascesis")),ascesesToday:habits.filter(h=>h.grp==="ascesis").map(h=>({title:h.title,clean:!!(h.log&&h.log[today])})),eveningMeditation:habits.filter(h=>h.grp==="evening").map(h=>({title:h.title,done:!!(h.log&&h.log[today])}))}:null,
     morningPractices:habits.filter(h=>h.grp==="morning").map(h=>({title:h.title,done:!!(h.log&&h.log[today]),streak:streakOf(h.log)}))};
 }
 $("advBtn").onclick=async()=>{
@@ -549,10 +571,12 @@ async function transcribe(blob){
 }
 
 // ===== settings / auth
-function openSettings(msg){$("setBox").hidden=false;$("set-oa").value=KEYS.oa();$("set-an").value=KEYS.an();$("set-auto").checked=LS.get("lf-auto")==="1";$("setMsg").textContent=msg||""}
+function openSettings(msg){$("setBox").hidden=false;$("set-oa").value=KEYS.oa();$("set-an").value=KEYS.an();$("set-mt").value=program?program.morning_text||"":"";$("set-et").value=program?program.evening_text||"":"";$("set-bed").value=program?hm5(program.bedtime)||"22:00":"22:00";$("set-auto").checked=LS.get("lf-auto")==="1";$("setMsg").textContent=msg||""}
 $("setBtn").onclick=()=>openSettings("");
 $("setClose").onclick=()=>{$("setBox").hidden=true};
-$("setSave").onclick=()=>{LS.set("lf-oa",$("set-oa").value.trim());LS.set("lf-an",$("set-an").value.trim());LS.set("lf-auto",$("set-auto").checked?"1":"0");$("setBox").hidden=true;toast("Збережено на цьому телефоні")};
+$("setSave").onclick=async()=>{LS.set("lf-oa",$("set-oa").value.trim());LS.set("lf-an",$("set-an").value.trim());LS.set("lf-auto",$("set-auto").checked?"1":"0");
+  if(program){try{await run(sb.from("program").update({morning_text:$("set-mt").value,evening_text:$("set-et").value,bedtime:$("set-bed").value||"22:00"}).eq("id",1))}catch(e){}}
+  $("setBox").hidden=true;toast("Збережено")};
 $("setLogout").onclick=async()=>{await sb.auth.signOut();location.reload()};
 $("loginBtn").onclick=async()=>{
   const email=$("lg-email").value.trim(),password=$("lg-pass").value;if(!email||!password)return;

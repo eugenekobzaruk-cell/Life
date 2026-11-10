@@ -3,17 +3,17 @@
 <title>Життя · Євген</title>
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Життя">
 <meta name="theme-color" content="#fbfbf9"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@500;600&display=swap">
 <style>
 /* Phone-first, same system as «Бюджет Топанга»: summary strip, stacked cards, tabs. */
 
 
 :root{
   --bg:#fbfbf9; --surface:#ffffff; --fg:#1d1d1b; --muted:#8c8c86; --line:#ebeae5;
-  --accent:#3f6f6a; --accent-ink:#ffffff;
-  --ok:#3f6f6a; --warn:#b07a2a; --bad:#b9463a; --bad-bg:#fbeeec; --warn-bg:#fbf3e6; --ok-bg:#eaf2f0;
+  --accent:#4a5a55; --accent-ink:#ffffff;
+  --ok:#4a5a55; --warn:#8c7a5a; --bad:#9a5a52; --bad-bg:#f6eeec; --warn-bg:#f6f2ea; --ok-bg:#eef1ef;
   --track:#f0efea;
-  --a-prod:#3f6f6a; --a-biz:#5a6f9a; --a-family:#b07a2a; --a-health:#6f8f4a; --a-home:#8a7f9a;
+  --a-prod:#6a7a75; --a-biz:#6a7a75; --a-family:#6a7a75; --a-health:#6a7a75; --a-home:#6a7a75;
   --sans:"Inter",-apple-system,system-ui,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   color-scheme:light;
@@ -125,7 +125,7 @@ button.ghost[data-arm="1"]{color:var(--bad);border-color:var(--bad)}
 .toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 
-#micBtn{padding:18px;font-size:18px;border-radius:16px;width:100%;box-shadow:0 6px 24px rgba(63,111,106,.18)}
+#micBtn{padding:16px;font-size:16px;border-radius:16px;width:100%;background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:none;font-weight:500}
 #micBtn.rec{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.75}}
 @media (prefers-reduced-motion:reduce){#micBtn.rec{animation:none}}
@@ -147,6 +147,15 @@ details.fold[open]>summary::after{transform:rotate(-90deg)}
 details.fold>.cats,details.fold>.ledger,details.fold>.chips,details.fold>.res{margin-top:4px}
 .now{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:4px}
 .now .k{font-size:12px;color:var(--muted)} .now .v{font-size:17px;font-weight:600} .now .m{font-size:13px;color:var(--muted)}
+
+.zen{padding:8px 4px 4px;display:grid;gap:10px}
+.zen .k{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.zen .txt{font-family:"Literata",Georgia,serif;font-size:19px;line-height:1.6;white-space:pre-wrap;color:var(--fg)}
+.zen .bed{font-family:"Literata",Georgia,serif;font-size:17px;color:var(--fg)}
+.zen .bed b{font-weight:500}
+.chip[aria-pressed="true"]{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.pill{display:none!important}
+.sum .lbl{letter-spacing:.04em}
 </style></head><body>
 
 <div class="login" id="login" hidden>
@@ -166,6 +175,9 @@ details.fold>.cats,details.fold>.ledger,details.fold>.chips,details.fold>.res{ma
     <div class="note" id="setMsg" style="text-align:left;color:var(--warn)"></div>
     <label>Ключ OpenAI (розпізнавання голосу, Whisper)</label><input type="password" id="set-oa" placeholder="sk-…" autocomplete="off">
     <label>Ключ Anthropic (розбір команд, порада, думка дня)</label><input type="password" id="set-an" placeholder="sk-ant-…" autocomplete="off">
+    <label>Текст на ранок</label><textarea id="set-mt" rows="5" style="font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%"></textarea>
+    <label>Текст на вечір</label><textarea id="set-et" rows="5" style="font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);width:100%"></textarea>
+    <label>Лягати о</label><input type="time" id="set-bed" style="font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)">
     <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="set-auto"> Виконувати голосові команди без підтвердження</label>
     <div style="display:flex;gap:8px"><button class="pri" type="button" id="setSave" style="flex:1">Зберегти</button><button class="ghost" type="button" id="setClose">Закрити</button><button class="ghost" type="button" id="setLogout">Вийти</button></div>
     <div class="note" style="text-align:left">Ключі лежать тільки в цьому браузері. Поставте ліміти витрат на обох ключах.</div>
@@ -179,12 +191,21 @@ details.fold>.cats,details.fold>.ledger,details.fold>.chips,details.fold>.res{ma
     <button type="button" role="tab" id="tb-me" aria-selected="false">Я</button>
   </div>
 
-  <div class="res" id="timerBox" hidden style="align-items:center">
+  <!-- ====== СЬОГОДНІ ====== -->
+  <div class="pane" id="p-today">
+    <div class="zen" id="zen" hidden>
+      <div class="k" id="zK"></div>
+      <div class="txt" id="zTxt"></div>
+      <div class="bed" id="zBed" hidden></div>
+      <div class="chips" id="zChips"></div>
+      <button class="pri" type="button" id="zClean" hidden style="width:100%;padding:12px">Сьогодні чисто</button>
+    </div>
+<div class="res" id="timerBox" hidden style="align-items:center">
     <div style="min-width:0;flex:1"><div class="lbl" id="timerName">—</div><div class="rmeta" id="timerMeta"></div></div>
     <div class="rbig" id="timerVal">0:00</div>
     <button class="pri" type="button" id="timerStop">Стоп</button>
   </div>
-  <button class="pri" type="button" id="micBtn">🎤 Сказати</button>
+  <button class="pri" type="button" id="micBtn">Сказати</button>
   <div class="recTime" id="recTime" hidden></div>
   <div style="display:flex;justify-content:center"><button class="ghost" type="button" id="typeBtn">або написати</button></div>
   <div class="res" id="sayBox" hidden style="flex-direction:column;align-items:stretch;gap:8px">
@@ -196,8 +217,6 @@ details.fold>.cats,details.fold>.ledger,details.fold>.chips,details.fold>.res{ma
       <div style="display:flex;gap:8px;margin-top:10px"><button class="pri" type="button" id="sayConfirm" style="flex:1">Так, виконати</button><button class="ghost" type="button" id="sayNo">Ні, не те</button></div>
     </div>
   </div>
-<!-- ====== СЬОГОДНІ ====== -->
-  <div class="pane" id="p-today">
     <div class="now" id="nowBox"><div class="k" id="sumNext">—</div><div class="v" id="sumMid">Завантаження…</div><div class="m" id="sumCount"></div></div>
     <div class="res" id="late" hidden>
       <div><div class="lbl">Прострочено</div><div class="rmeta" id="lateMeta"></div></div>
@@ -307,7 +326,7 @@ details.fold>.cats,details.fold>.ledger,details.fold>.chips,details.fold>.res{ma
       <button class="ghost" type="button" id="qBtn" style="margin-top:8px;padding:8px 14px;font-size:14px">Нова думка</button>
     </details>
     <details class="fold"><summary>Підйом · 7 днів <span id="wakeSpan"></span></summary><div class="wake" id="wakeGrid" style="margin-top:6px"></div></details>
-    <details class="fold"><summary>Ачівменти <span id="achSpan"></span></summary><div class="ach" id="achGrid" style="margin-top:6px"></div></details>
+    <div hidden><span id="achSpan"></span><div id="achGrid"></div></div>
     <details class="fold"><summary>Мої правила <span>за ними живе порада</span></summary><div class="rules" id="rulesList" style="margin-top:6px"></div>
       <details class="addp" id="addRule" style="margin-top:8px"><summary>+ Правило</summary>
         <div class="pform"><input type="text" id="r-text" placeholder="Напр. до 12:00 — тільки продакшн, без пошти" aria-label="Правило" class="full"><button class="pri" type="button" id="r-add">Додати</button></div>
