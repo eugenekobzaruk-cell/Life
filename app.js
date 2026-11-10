@@ -141,11 +141,11 @@ function renderZen(){
   const mp=habits.filter(h=>h.grp==="morning"),pm=habits.filter(h=>h.grp==="evening"),asc=habits.filter(h=>h.grp==="ascesis");
   const C=$("zChips");C.innerHTML="";
   if(mode==="morning"){
-    $("zK").textContent="Ранок · "+(program.name||"");$("zTxt").textContent=program.morning_text||"";$("zBed").hidden=true;$("zClean").hidden=true;
+    $("zK").textContent="Ранок";$("zTxt").textContent=program.morning_text||"";$("zBed").hidden=true;$("zClean").hidden=true;
     for(const t of QUICK_WAKE){const b=document.createElement("button");b.className="chip";b.type="button";const v=t==="пізніше"?"late":t;b.setAttribute("aria-pressed",wt===v);b.textContent=(t==="пізніше"?"пізніше":"встав о "+t);b.onclick=()=>setWake(v);C.appendChild(b)}
     for(const hb of mp){const on=!!(hb.log&&hb.log[today]);const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);b.textContent=(on?"✓ ":"")+hb.title;b.onclick=()=>setHabit(hb,on);C.appendChild(b)}
   }else{
-    $("zK").textContent="Вечір · "+(program.name||"");$("zTxt").textContent=program.evening_text||"";
+    $("zK").textContent="Вечір";$("zTxt").textContent=program.evening_text||"";
     const bed=hm5(program.bedtime)||"22:00";const [bh,bm]=bed.split(":").map(Number);const left=(bh*60+bm)-(hr*60+mn);
     $("zBed").hidden=false;$("zBed").innerHTML="Лягати о <b>"+bed+"</b>"+(left>0?" · через "+(left>=60?Math.floor(left/60)+" год "+pad(left%60)+" хв":left+" хв"):" · <b>вже час</b>");
     for(const hb of pm){const on=!!(hb.log&&hb.log[today]);const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on);b.textContent=(on?"✓ ":"")+hb.title;b.onclick=()=>setHabit(hb,on);C.appendChild(b)}
