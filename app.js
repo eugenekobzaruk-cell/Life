@@ -135,7 +135,7 @@ function eventCard(e){
 
 function renderZen(){
   const Z=$("zen");const hr=new Date().getHours(),mn=new Date().getMinutes();
-  const mode=hr<11?"morning":hr>=19?"evening":"day";
+  const mode=hr>=19?"evening":"morning";
   if(!program||mode==="day"){Z.hidden=true;return}
   Z.hidden=false;const log=me.wake||{},wt=log[today];
   const mp=habits.filter(h=>h.grp==="morning"),pm=habits.filter(h=>h.grp==="evening"),asc=habits.filter(h=>h.grp==="ascesis");
