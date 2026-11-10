@@ -33,7 +33,7 @@ let toastT;function toast(s){const t=$("toast");t.textContent=s;t.classList.add(
 const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 
 // ===== state
-let tasks=[],events=[],projects=[],habits=[],timelog=[],timer=null,me={},quote=null,lastAdvice=null,program=null;
+let tasks=[],events=[],projects=[],habits=[],timelog=[],timer=null,me={},quote=null,lastAdvice=null,program=null,paused=null;
 let openTask=null,openEvent=null,openProj=null,openArea=null,openDay=null,weekStart=mondayOf(today);
 const logHours=(d,area)=>timelog.filter(x=>x.day===d&&(!area||x.area===area)).reduce((a,x)=>a+Number(x.min||0)/60,0);
 const live=t=>!t.done;
@@ -57,7 +57,7 @@ async function loadAll(){
   const logs={};for(const r of (hl.data||[])){(logs[r.habit_id]=logs[r.habit_id]||{})[r.day]=true}
   habits=(h.data||[]).map(x=>({...x,log:logs[x.id]||{}}));
   timelog=(tl.data||[]).map(x=>({...x,start_t:hm5(x.start_t),end_t:hm5(x.end_t)}));
-  timer=tm.data&&tm.data.started_at?{...tm.data,start:new Date(tm.data.started_at).getTime()}:null;
+  timer=tm.data&&tm.data.started_at?{...tm.data,start:new Date(tm.data.started_at).getTime()}:null;paused=tm.data&&tm.data.paused_pj?{pj:tm.data.paused_pj,title:tm.data.paused_title||"",area:tm.data.paused_area||"prod"}:null;
   const md=m.data||{};me={wakeTarget:hm5(md.wake_target)||"06:00",why:md.why||"",rules:md.rules||[],wake:md.wake||{},targets:md.targets||{}};
   program=pr.data||null;quote=q.data||null;lastAdvice=ad.data&&ad.data.text?ad.data:null;
   renderAll();
@@ -314,15 +314,26 @@ function renderAreas(){
 
 // ===== ТАЙМЕР
 function renderTimer(){
-  const box=$("timerBox");if(!timer||!timer.start){box.hidden=true;return}
-  box.hidden=false;const p=projects.find(q=>q.id===timer.pj);
-  $("timerName").textContent="▶ "+(p?p.name:timer.title||"Робота");
-  $("timerVal").textContent=fmtMin((Date.now()-timer.start)/60000);
-  $("timerMeta").textContent="з "+hm(new Date(timer.start))+(p&&p.area?" · "+AN[p.area]:"");
+  const box=$("timerBox");
+  if(timer&&timer.start){box.hidden=false;const p=projects.find(q=>q.id===timer.pj);
+    $("timerName").textContent="▶ "+(p?p.name:timer.title||"Робота");$("timerVal").textContent=fmtMin((Date.now()-timer.start)/60000);
+    $("timerMeta").textContent="з "+hm(new Date(timer.start))+(p&&p.area?" · "+AN[p.area]:"");
+    $("timerPause").hidden=false;$("timerPause").textContent="Пауза";$("timerStop").textContent="Стоп";return}
+  if(paused){box.hidden=false;const p=projects.find(q=>q.id===paused.pj);const name=p?p.name:paused.title||"Робота";
+    const mins=timelog.filter(x=>x.day===today&&(x.pj||x.title)===(paused.pj||paused.title)).reduce((a,x)=>a+Number(x.min||0),0);
+    $("timerName").textContent="⏸ "+name;$("timerVal").textContent=fmtMin(mins);$("timerMeta").textContent="на паузі · сьогодні разом";
+    $("timerPause").hidden=false;$("timerPause").textContent="Продовжити";$("timerStop").textContent="Завершити";return}
+  box.hidden=true;
 }
+async function pauseTimer(){if(!timer||!timer.start)return;const p={pj:timer.pj||null,title:timer.title||"",area:timer.area||"prod"};await stopTimer(true);
+  await run(sb.from("timer").update({paused_pj:p.pj,paused_title:p.title,paused_area:p.area}).eq("id",1),"Пауза");paused=p;renderTimer()}
+async function resumeTimer(){if(!paused)return;const p=paused;paused=null;await run(sb.from("timer").update({paused_pj:null,paused_title:null,paused_area:null}).eq("id",1));await startTimer(p.pj,p.title)}
+async function finishTimer(){if(timer&&timer.start){await stopTimer(false)}if(paused){paused=null;await run(sb.from("timer").update({paused_pj:null,paused_title:null,paused_area:null}).eq("id",1),"Завершено")}renderTimer()}
+$("timerPause").onclick=()=>{if(timer&&timer.start)pauseTimer();else resumeTimer()};
 setInterval(()=>{renderTimer();renderZen()},30000);
 async function startTimer(pj,title){
   if(timer&&timer.start)await stopTimer(true);
+  if(paused){paused=null;await run(sb.from("timer").update({paused_pj:null,paused_title:null,paused_area:null}).eq("id",1))}
   const p=projects.find(q=>q.id===pj);
   await run(sb.from("timer").update({pj:pj||null,title:title||(p?p.name:""),area:p?p.area:"prod",started_at:new Date().toISOString()}).eq("id",1),"Пішов: "+(p?p.name:title||""));
   timer={pj,title,area:p?p.area:"prod",start:Date.now()};renderTimer();
@@ -333,7 +344,7 @@ async function stopTimer(quiet){
   await run(sb.from("timer").update({pj:null,started_at:null}).eq("id",1),quiet?"":"Записано "+fmtMin(min));
   timer=null;renderTimer();
 }
-$("timerStop").onclick=()=>stopTimer(false);
+$("timerStop").onclick=()=>finishTimer();
 
 // ===== Я
 const QUICK_WAKE=["05:30","06:00","06:30","07:00","пізніше"];
@@ -463,12 +474,14 @@ $("qBtn").onclick=async()=>{
 
 // ===== ГОЛОС
 let rec=null,chunks=[],recStart=0,recTimer=null,pending=null,mediaStream=null;
-const ACT_LABEL={clean_day:"Чистий день",broke:"Зрив",wake:"Підйом",rule_add:"Правило",why_set:"Навіщо",timer_start:"▶ Таймер",timer_stop:"■ Стоп",add_event:"Подія",add_task:"Задача",done_task:"Зроблено",add_project:"Проект",set_next:"Наступний крок",move_task:"Перенести",habit:"Звичка ✓",note:"Нотатка"};
+const ACT_LABEL={timer_pause:"⏸ Пауза",timer_resume:"▶ Продовжити",clean_day:"Чистий день",broke:"Зрив",wake:"Підйом",rule_add:"Правило",why_set:"Навіщо",timer_start:"▶ Таймер",timer_stop:"■ Стоп",add_event:"Подія",add_task:"Задача",done_task:"Зроблено",add_project:"Проект",set_next:"Наступний крок",move_task:"Перенести",habit:"Звичка ✓",note:"Нотатка"};
 function describe(a){
   const p=a.pj?projects.find(q=>q.id===a.pj):null,t=a.task?tasks.find(q=>q.id===a.task):null;
   switch(a.type){
     case"timer_start":return (p?p.name:a.title||"?");
-    case"timer_stop":return timer&&timer.start?"зупинити і записати час":"таймер не запущено";
+    case"timer_stop":return timer&&timer.start?"зупинити і записати час":paused?"завершити роботу над "+(projects.find(q=>q.id===paused.pj)||{}).name:"таймер не запущено";
+    case"timer_pause":return timer&&timer.start?"пауза, час збережено":"таймер не запущено";
+    case"timer_resume":return paused?"продовжити "+((projects.find(q=>q.id===paused.pj)||{}).name||paused.title):"нічого продовжувати";
     case"add_event":return (a.date?ddmm(a.date):"?")+(a.start?" "+a.start:"")+(a.end?"–"+a.end:"")+" · "+(a.title||"?")+" · "+(AN[a.area]||"");
     case"add_task":return (a.title||"?")+(a.day?" · на "+ddmm(a.day):"")+(a.due?" · до "+ddmm(a.due):"")+(a.pri===1?" · головне":"")+" · "+(AN[a.area]||"")+(p?" · "+p.name:"");
     case"done_task":return t?t.title:"задачу не знайдено";
@@ -490,9 +503,11 @@ function ctx(){
     openTasks:tasks.filter(live).map(t=>({id:t.id,title:t.title,area:t.area,day:t.day,due:t.due})),
     habits:habits.filter(h=>h.grp!=="ascesis").map(h=>({id:h.id,title:h.title,grp:h.grp})),asceses:habits.filter(h=>h.grp==="ascesis").map(h=>({id:h.id,title:h.title})),wakeTarget:me.wakeTarget||"06:00"};
 }
-const PARSE_RULES="Типи дій:\n- {\"type\":\"timer_start\",\"pj\":\"<id проекту з контексту>\",\"title\":\"<якщо проекту немає — назва>\"} — «сів на…», «почав…», «працюю над…»\n- {\"type\":\"timer_stop\"} — «стоп», «пауза», «закінчив», «перерва»\n- {\"type\":\"add_event\",\"title\",\"date\":\"YYYY-MM-DD\",\"start\":\"HH:MM\"|null,\"end\":\"HH:MM\"|null,\"area\"} — зустріч, дзвінок, сесія, поїздка з часом; «завтра/у вівторок/наступної середи» рахуй від today і weekday; без кінця — end = start + 1 год\n- {\"type\":\"add_task\",\"title\",\"area\",\"day\":\"YYYY-MM-DD\"|null,\"due\":\"YYYY-MM-DD\"|null,\"pri\":1|2,\"pj\":\"<id>\"|null} — «треба…», «не забути…», «зробити…»; «сьогодні» → day=today; «до п'ятниці» → due; «головне/важливо» → pri 1\n- {\"type\":\"done_task\",\"task\":\"<id з openTasks>\"} — «зробив…», «закрив…», «готово…»; обери найближчу за змістом задачу\n- {\"type\":\"move_task\",\"task\":\"<id>\",\"day\":\"YYYY-MM-DD\"} — «перенеси … на завтра»\n- {\"type\":\"add_project\",\"name\",\"area\",\"deadline\":\"YYYY-MM-DD\"|null,\"next\":\"\"} — новий проект/пісня/клієнт\n- {\"type\":\"set_next\",\"pj\":\"<id>\",\"next\":\"...\"} — «наступний крок по … — …»\n- {\"type\":\"habit\",\"habit\":\"<id>\"} — «покатався», «потренувався», «зважився», «помедитував», «почитав Йогананду»\n- {\"type\":\"clean_day\"} — «сьогодні чисто», «день чистий», «всі аскези дотримав»\n- {\"type\":\"broke\",\"habit\":\"<id з asceses>\"} — «зірвався на солодке», «випив», «залип в інстаграмі» — знімає галочку цієї аскези за сьогодні\n- {\"type\":\"habit\",\"habit\":\"<id з habits>\"} також для медитацій (grp morning/evening: «помедитував зранку/ввечері»), зобов'язань (grp commit: «порухався», «добре спав», «працював залочено») і порядку (grp order: «прибрав студію», «помив авто», «поголився»)\n- {\"type\":\"wake\",\"time\":\"HH:MM\"|\"late\"} — «встав о шостій», «прокинувся о 5:40», «проспав» → late\n- {\"type\":\"rule_add\",\"text\"} — «правило: …», «хочу жити так: …», «принцип: …» — коротко, у його словах\n- {\"type\":\"why_set\",\"text\"} — «навіщо все це: …», «моя ціль на рік — …»\n- {\"type\":\"note\",\"text\"} — якщо нічого не підходить, коротко що саме незрозуміло\nСфера за змістом: пісні/клієнти/студійна робота → prod; Ninja, паблішинг, команда, пітчі, облік студії → biz; Северин, школа, Катя (не бізнес) → family; вело, силові, тхеквондо, їжа, вага, медитація → health; бюджет, дім, документи, покупки → home. Одна фраза може давати кілька дій. Дати тільки YYYY-MM-DD, час HH:MM 24 год. Без markdown, без пояснень.";
+const PARSE_RULES="Типи дій:\n- {\"type\":\"timer_start\",\"pj\":\"<id проекту з контексту>\",\"title\":\"<якщо проекту немає — назва>\"} — «сів на…», «почав…», «працюю над…»\n- {\"type\":\"timer_pause\"} — «пауза», «перерва», «відійшов» (час зберігається, можна продовжити)\n- {\"type\":\"timer_resume\"} — «продовжую», «повернувся», «далі»\n- {\"type\":\"timer_stop\"} — «стоп», «закінчив», «завершив»\n- {\"type\":\"add_event\",\"title\",\"date\":\"YYYY-MM-DD\",\"start\":\"HH:MM\"|null,\"end\":\"HH:MM\"|null,\"area\"} — зустріч, дзвінок, сесія, поїздка з часом; «завтра/у вівторок/наступної середи» рахуй від today і weekday; без кінця — end = start + 1 год\n- {\"type\":\"add_task\",\"title\",\"area\",\"day\":\"YYYY-MM-DD\"|null,\"due\":\"YYYY-MM-DD\"|null,\"pri\":1|2,\"pj\":\"<id>\"|null} — «треба…», «не забути…», «зробити…»; «сьогодні» → day=today; «до п'ятниці» → due; «головне/важливо» → pri 1\n- {\"type\":\"done_task\",\"task\":\"<id з openTasks>\"} — «зробив…», «закрив…», «готово…»; обери найближчу за змістом задачу\n- {\"type\":\"move_task\",\"task\":\"<id>\",\"day\":\"YYYY-MM-DD\"} — «перенеси … на завтра»\n- {\"type\":\"add_project\",\"name\",\"area\",\"deadline\":\"YYYY-MM-DD\"|null,\"next\":\"\"} — новий проект/пісня/клієнт\n- {\"type\":\"set_next\",\"pj\":\"<id>\",\"next\":\"...\"} — «наступний крок по … — …»\n- {\"type\":\"habit\",\"habit\":\"<id>\"} — «покатався», «потренувався», «зважився», «помедитував», «почитав Йогананду»\n- {\"type\":\"clean_day\"} — «сьогодні чисто», «день чистий», «всі аскези дотримав»\n- {\"type\":\"broke\",\"habit\":\"<id з asceses>\"} — «зірвався на солодке», «випив», «залип в інстаграмі» — знімає галочку цієї аскези за сьогодні\n- {\"type\":\"habit\",\"habit\":\"<id з habits>\"} також для медитацій (grp morning/evening: «помедитував зранку/ввечері»), зобов'язань (grp commit: «порухався», «добре спав», «працював залочено») і порядку (grp order: «прибрав студію», «помив авто», «поголився»)\n- {\"type\":\"wake\",\"time\":\"HH:MM\"|\"late\"} — «встав о шостій», «прокинувся о 5:40», «проспав» → late\n- {\"type\":\"rule_add\",\"text\"} — «правило: …», «хочу жити так: …», «принцип: …» — коротко, у його словах\n- {\"type\":\"why_set\",\"text\"} — «навіщо все це: …», «моя ціль на рік — …»\n- {\"type\":\"note\",\"text\"} — якщо нічого не підходить, коротко що саме незрозуміло\nСфера за змістом: пісні/клієнти/студійна робота → prod; Ninja, паблішинг, команда, пітчі, облік студії → biz; Северин, школа, Катя (не бізнес) → family; вело, силові, тхеквондо, їжа, вага, медитація → health; бюджет, дім, документи, покупки → home. Одна фраза може давати кілька дій. Дати тільки YYYY-MM-DD, час HH:MM 24 год. Без markdown, без пояснень.";
 async function parseCommand(text){
-  if(/^(стоп|стій|пауза|stop|зупини(ти)?|закінчив|перерва)[.!]?$/i.test(text.trim()))return {understood:"Стоп",actions:[{type:"timer_stop"}]};
+  if(/^(пауза|перерва|pause)[.!]?$/i.test(text.trim()))return {understood:"Пауза",actions:[{type:"timer_pause"}]};
+  if(/^(продовжую|продовжити|далі|resume|поїхали далі)[.!]?$/i.test(text.trim()))return {understood:"Продовжити",actions:[{type:"timer_resume"}]};
+  if(/^(стоп|стій|stop|зупини(ти)?|закінчив|завершив)[.!]?$/i.test(text.trim()))return {understood:"Стоп",actions:[{type:"timer_stop"}]};
   const prompt="Ти асистент Євгена з тайм-менеджменту. Перетвори його надиктовану фразу (українською, можливі помилки розпізнавання: «Рози» = пісня Yaktak «Рози», «Нащо» = пісня Yaktak, Міоко = Mioko, Ковальов = Kovalov) на дії для дашборду. Контекст (JSON): "+JSON.stringify(ctx())+"\n\nФраза: «"+text.replace(/"/g,"'")+"»\n\nПоверни ТІЛЬКИ JSON виду {\"understood\":\"одне речення, що ти зрозумів\",\"actions\":[...]}. "+PARSE_RULES;
   const v=await claude(prompt,{json:true});if(!v||!Array.isArray(v.actions))throw new Error("порожня відповідь");return v;
 }
@@ -501,7 +516,9 @@ async function execute(acts){
   for(const a of acts){try{
     switch(a.type){
       case"timer_start":await startTimer(a.pj||null,a.title||"");break;
-      case"timer_stop":await stopTimer(false);break;
+      case"timer_stop":await finishTimer();break;
+      case"timer_pause":await pauseTimer();break;
+      case"timer_resume":await resumeTimer();break;
       case"add_event":if(a.title&&a.date){let end=a.end||null;if(a.start&&!end){const [h,m]=a.start.split(":").map(Number);end=pad(Math.min(23,h+1))+":"+pad(m)}await ins("events",{title:String(a.title).slice(0,120),area:isArea(a.area)?a.area:"family",day:a.date,start_t:a.start||null,end_t:end,src:"me"})}break;
       case"add_task":if(a.title)await ins("tasks",{title:String(a.title).slice(0,120),area:isArea(a.area)?a.area:"home",day:a.day||null,due:a.due||null,pri:a.pri===1?1:2,pj:a.pj&&projects.some(p=>p.id===a.pj)?a.pj:null});break;
       case"done_task":if(a.task&&tasks.some(t=>t.id===a.task))await upd("tasks",a.task,{done:true,done_at:new Date().toISOString()});break;
@@ -530,7 +547,7 @@ async function handleText(text){
   try{const v=await parseCommand(text);
     sb.from("voice_log").insert({heard:text,understood:v.understood||"",actions:v.actions}).then(()=>{});
     const auto=LS.get("lf-auto")==="1";
-    const simple=v.actions.length&&v.actions.every(a=>["timer_start","timer_stop","habit","wake","clean_day","broke"].includes(a.type));
+    const simple=v.actions.length&&v.actions.every(a=>["timer_start","timer_stop","timer_pause","timer_resume","habit","wake","clean_day","broke"].includes(a.type));
     if(auto||simple){showPending(v);await execute(v.actions);pending=null;$("sayBox").hidden=true;$("sayText").value=""}else showPending(v);
   }catch(e){toast("Не вдалося розібрати: "+e.message)}
   btn.disabled=false;btn.textContent="Виконати";
